@@ -393,6 +393,35 @@ pub unsafe extern "C" fn vkCmdBindDescriptorSets(
     }
 }
 
+/// Push constants
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. layout is a valid VkPipelineLayout with push constant ranges
+// 3. stageFlags specifies valid pipeline stages (VK_SHADER_STAGE_COMPUTE_BIT)
+// 4. offset and size are within the push constant range defined in the layout
+// 5. pValues points to at least size bytes of valid memory
+// 6. The push constant data is properly aligned for the target architecture
+#[no_mangle]
+pub unsafe extern "C" fn vkCmdPushConstants(
+    commandBuffer: VkCommandBuffer,
+    layout: VkPipelineLayout,
+    stageFlags: VkShaderStageFlags,
+    offset: u32,
+    size: u32,
+    pValues: *const libc::c_void,
+) {
+    if commandBuffer.is_null() || layout.is_null() || pValues.is_null() || size == 0 {
+        return;
+    }
+    
+    // Forward to real ICD
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(cmd_push_constants) = icd.cmd_push_constants {
+            cmd_push_constants(commandBuffer, layout, stageFlags, offset, size, pValues);
+        }
+    }
+}
+
 /// Dispatch compute work
 // SAFETY: This function is called from C code. Caller must ensure:
 // 1. commandBuffer is a valid VkCommandBuffer in the recording state

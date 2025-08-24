@@ -137,6 +137,15 @@ pub const VK_MAX_MEMORY_TYPES: usize = 32;
 
 // API version
 pub const VK_API_VERSION_1_0: u32 = (1 << 22) | (0 << 12) | 0;
+pub const VK_API_VERSION_1_1: u32 = (1 << 22) | (1 << 12) | 0;
+pub const VK_API_VERSION_1_2: u32 = (1 << 22) | (2 << 12) | 0;
+pub const VK_API_VERSION_1_3: u32 = (1 << 22) | (3 << 12) | 0;
+
+// Version macros
+#[inline]
+pub const fn VK_MAKE_VERSION(major: u32, minor: u32, patch: u32) -> u32 {
+    (major << 22) | (minor << 12) | patch
+}
 
 #[cfg(test)]
 mod tests {

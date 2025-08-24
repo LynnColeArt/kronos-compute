@@ -196,7 +196,7 @@ pub unsafe fn get_persistent_descriptor_set(
     let mut buffer_infos = Vec::with_capacity(buffers.len());
     let mut writes = Vec::with_capacity(buffers.len());
     
-    for (i, &buffer) in buffers.iter().enumerate() {
+    for (_i, &buffer) in buffers.iter().enumerate() {
         buffer_infos.push(VkDescriptorBufferInfo {
             buffer,
             offset: 0,
@@ -227,10 +227,11 @@ pub unsafe fn get_persistent_descriptor_set(
     
     // Cache the descriptor
     manager.generation += 1;
+    let generation = manager.generation;
     manager.descriptors.insert(cache_key, PersistentDescriptor {
         descriptor_set,
         buffers: buffers.to_vec(),
-        generation: manager.generation,
+        generation,
     });
     
     Ok(descriptor_set)

@@ -601,7 +601,7 @@ unsafe fn create_optimized_context() -> Option<OptimizedContext> {
     let create_info = VkInstanceCreateInfo {
         sType: VkStructureType::InstanceCreateInfo,
         pNext: ptr::null(),
-        flags: VkInstanceCreateFlags::empty(),
+        flags: 0,
         pApplicationInfo: &app_info,
         enabledLayerCount: 0,
         ppEnabledLayerNames: ptr::null(),
@@ -628,7 +628,7 @@ unsafe fn create_optimized_context() -> Option<OptimizedContext> {
     let queue_create_info = VkDeviceQueueCreateInfo {
         sType: VkStructureType::DeviceQueueCreateInfo,
         pNext: ptr::null(),
-        flags: VkDeviceQueueCreateFlags::empty(),
+        flags: 0,
         queueFamilyIndex: 0, // Assume compute is family 0
         queueCount: 1,
         pQueuePriorities: &queue_priority,
@@ -637,7 +637,7 @@ unsafe fn create_optimized_context() -> Option<OptimizedContext> {
     let device_create_info = VkDeviceCreateInfo {
         sType: VkStructureType::DeviceCreateInfo,
         pNext: ptr::null(),
-        flags: VkDeviceCreateFlags::empty(),
+        flags: 0,
         queueCreateInfoCount: 1,
         pQueueCreateInfos: &queue_create_info,
         enabledLayerCount: 0,

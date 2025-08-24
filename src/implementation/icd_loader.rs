@@ -142,6 +142,7 @@ pub struct LoadedICD {
     pub cmd_dispatch_indirect: Option<unsafe extern "C" fn(VkCommandBuffer, VkBuffer, VkDeviceSize)>,
     pub cmd_pipeline_barrier: PFN_vkCmdPipelineBarrier,
     pub cmd_copy_buffer: Option<unsafe extern "C" fn(VkCommandBuffer, VkBuffer, VkBuffer, u32, *const VkBufferCopy)>,
+    pub cmd_push_constants: Option<unsafe extern "C" fn(VkCommandBuffer, VkPipelineLayout, VkShaderStageFlags, u32, u32, *const c_void)>,
     
     // Sync functions
     pub create_fence: PFN_vkCreateFence,
@@ -334,6 +335,7 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
             cmd_dispatch_indirect: None,
             cmd_pipeline_barrier: None,
             cmd_copy_buffer: None,
+            cmd_push_constants: None,
             create_fence: None,
             destroy_fence: None,
             reset_fences: None,
@@ -505,6 +507,7 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Re
     load_fn!(cmd_dispatch_indirect, "vkCmdDispatchIndirect");
     load_fn!(cmd_pipeline_barrier, "vkCmdPipelineBarrier");
     load_fn!(cmd_copy_buffer, "vkCmdCopyBuffer");
+    load_fn!(cmd_push_constants, "vkCmdPushConstants");
     
     // Sync functions
     load_fn!(create_fence, "vkCreateFence");

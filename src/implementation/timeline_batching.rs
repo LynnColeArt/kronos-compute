@@ -194,7 +194,7 @@ pub unsafe fn submit_batch(
     let signal_value = timeline.current_value;
     
     // Build timeline submit info
-    let mut timeline_info = VkTimelineSemaphoreSubmitInfo {
+    let timeline_info = VkTimelineSemaphoreSubmitInfo {
         sType: VkStructureType::TimelineSemaphoreSubmitInfo,
         pNext: std::ptr::null(),
         waitSemaphoreValueCount: batch.wait_values.len() as u32,
