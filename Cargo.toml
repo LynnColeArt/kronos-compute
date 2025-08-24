@@ -23,7 +23,7 @@ ash = { version = "0.37", optional = true }  # For comparison with standard Vulk
 thiserror = "1.0"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = { version = "0.5", features = ["html_reports"] }
 env_logger = "0.10"
 
 [features]
@@ -44,3 +44,25 @@ path = "examples/compute_simple.rs"
 [[bench]]
 name = "api_overhead"
 harness = false
+
+[[bench]]
+name = "initialization"
+harness = false
+
+[[bench]]
+name = "dispatch_throughput"
+harness = false
+
+[[bench]]
+name = "memory_operations"
+harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[profile.bench]
+lto = true
+codegen-units = 1
+opt-level = 3

@@ -215,7 +215,7 @@ fn benchmark_enum_dispatch(c: &mut Criterion) {
     group.bench_function("VkResult::is_success", |b| {
         let result = VkResult::Success;
         b.iter(|| {
-            black_box(result.is_success())
+            black_box(result == VkResult::Success)
         });
     });
     
