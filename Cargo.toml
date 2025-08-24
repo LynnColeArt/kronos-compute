@@ -14,6 +14,7 @@ categories = ["graphics", "api-bindings"]
 libc = "0.2"
 bitflags = "2.4"
 lazy_static = { version = "1.4", optional = true }
+log = "0.4"
 
 # Optional dependencies for different features
 ash = { version = "0.37", optional = true }  # For comparison with standard Vulkan

@@ -1,6 +1,7 @@
 //! Actual implementation of Kronos compute APIs
 
 use std::sync::Mutex;
+use log::warn;
 
 pub mod error;
 pub mod instance;
@@ -43,7 +44,7 @@ pub fn initialize_kronos() -> Result<(), error::KronosError> {
         }
         Err(e) => {
             // Log the error but don't fail initialization
-            eprintln!("Warning: Failed to load Vulkan ICD: {}", e);
+            warn!("Failed to initialize Vulkan ICD loader: {}", e);
             Ok(())
         }
     }

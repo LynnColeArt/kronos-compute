@@ -8,18 +8,65 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
 use libc::{c_void, c_char};
+use log::{info, warn, error};
 use crate::sys::*;
 use crate::core::{VkBufferCopy, VkDescriptorPoolResetFlags};
 use crate::ffi::*;
 use super::error::{IcdError, KronosError};
 
-/// ICD discovery paths
-const ICD_SEARCH_PATHS: &[&str] = &[
-    "/usr/share/vulkan/icd.d",
-    "/usr/local/share/vulkan/icd.d",
-    "/etc/vulkan/icd.d",
-    "/usr/share/vulkan/implicit_layer.d",
-];
+/// Get platform-specific ICD search paths
+fn get_icd_search_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    
+    // Check environment variable first (cross-platform override)
+    if let Ok(custom_paths) = env::var("KRONOS_ICD_SEARCH_PATHS") {
+        for path in custom_paths.split(if cfg!(windows) { ';' } else { ':' }) {
+            paths.push(PathBuf::from(path));
+        }
+        return paths;
+    }
+    
+    // Platform-specific default paths
+    #[cfg(target_os = "linux")]
+    {
+        paths.extend([
+            PathBuf::from("/usr/share/vulkan/icd.d"),
+            PathBuf::from("/usr/local/share/vulkan/icd.d"),
+            PathBuf::from("/etc/vulkan/icd.d"),
+            PathBuf::from("/usr/share/vulkan/implicit_layer.d"),
+        ]);
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        // Windows registry paths - simplified for now
+        if let Ok(system_root) = env::var("SYSTEMROOT") {
+            paths.push(PathBuf::from(system_root).join("System32").join("vulkan"));
+        }
+        paths.push(PathBuf::from("C:\\Windows\\System32\\vulkan"));
+        
+        // Program Files paths
+        if let Ok(program_files) = env::var("PROGRAMFILES") {
+            paths.push(PathBuf::from(program_files).join("Vulkan").join("Config"));
+        }
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        paths.extend([
+            PathBuf::from("/usr/local/share/vulkan/icd.d"),
+            PathBuf::from("/System/Library/Extensions"),
+            PathBuf::from("/Library/Extensions"),
+        ]);
+        
+        // User-specific paths
+        if let Ok(home) = env::var("HOME") {
+            paths.push(PathBuf::from(home).join(".local/share/vulkan/icd.d"));
+        }
+    }
+    
+    paths
+}
 
 /// Loaded ICD information
 pub struct LoadedICD {
@@ -138,23 +185,36 @@ lazy_static::lazy_static! {
 pub fn discover_icds() -> Vec<PathBuf> {
     let mut icd_files = Vec::new();
     
-    // Check environment variable first
+    // Check Vulkan SDK environment variable first (highest priority)
     if let Ok(icd_filenames) = env::var("VK_ICD_FILENAMES") {
-        for path in icd_filenames.split(':') {
+        let separator = if cfg!(windows) { ';' } else { ':' };
+        for path in icd_filenames.split(separator) {
             icd_files.push(PathBuf::from(path));
         }
+        info!("Found {} ICD files from VK_ICD_FILENAMES", icd_files.len());
+        return icd_files;
     }
     
-    // Search standard paths
-    for search_path in ICD_SEARCH_PATHS {
+    // Search platform-specific paths
+    let search_paths = get_icd_search_paths();
+    for search_path in &search_paths {
         if let Ok(entries) = fs::read_dir(search_path) {
+            let mut path_count = 0;
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
                     icd_files.push(path);
+                    path_count += 1;
                 }
             }
+            if path_count > 0 {
+                info!("Found {} ICD manifest files in {}", path_count, search_path.display());
+            }
         }
+    }
+    
+    if icd_files.is_empty() {
+        warn!("No ICD manifest files found in any search paths: {:#?}", search_paths);
     }
     
     icd_files
@@ -480,12 +540,12 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
             
             match load_icd(&lib_path) {
                 Ok(icd) => {
-                    println!("Loaded ICD: {:?}", lib_path);
+                    info!("Successfully loaded Vulkan ICD: {}", lib_path.display());
                     *ICD_LOADER.lock()? = Some(icd);
                     return Ok(());
                 }
                 Err(e) => {
-                    eprintln!("Failed to load ICD {:?}: {}", lib_path, e);
+                    warn!("Failed to load ICD {}: {}", lib_path.display(), e);
                 }
             }
         }
