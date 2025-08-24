@@ -5,6 +5,11 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Create a Kronos instance
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. pCreateInfo points to a valid VkInstanceCreateInfo structure
+// 2. pAllocator is either null or points to valid allocation callbacks
+// 3. pInstance points to valid memory for writing the instance handle
+// 4. All pointers remain valid for the duration of this call
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateInstance(
     pCreateInfo: *const VkInstanceCreateInfo,
@@ -39,6 +44,10 @@ pub unsafe extern "C" fn vkCreateInstance(
 }
 
 /// Destroy instance
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. instance is a valid VkInstance created by vkCreateInstance
+// 2. pAllocator matches the allocator used in vkCreateInstance (or both are null)
+// 3. All objects created from this instance have been destroyed
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyInstance(
     instance: VkInstance,
@@ -57,6 +66,10 @@ pub unsafe extern "C" fn vkDestroyInstance(
 }
 
 /// Enumerate physical devices (GPUs)
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. instance is a valid VkInstance
+// 2. pPhysicalDeviceCount points to valid memory
+// 3. If pPhysicalDevices is not null, it points to an array of at least *pPhysicalDeviceCount elements
 #[no_mangle]
 pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     instance: VkInstance,
@@ -79,6 +92,9 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
 }
 
 /// Get physical device properties
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. physicalDevice is a valid VkPhysicalDevice obtained from vkEnumeratePhysicalDevices
+// 2. pProperties points to valid memory for a VkPhysicalDeviceProperties structure
 #[no_mangle]
 pub unsafe extern "C" fn vkGetPhysicalDeviceProperties(
     physicalDevice: VkPhysicalDevice,
@@ -97,6 +113,9 @@ pub unsafe extern "C" fn vkGetPhysicalDeviceProperties(
 }
 
 /// Get physical device memory properties
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. physicalDevice is a valid VkPhysicalDevice obtained from vkEnumeratePhysicalDevices
+// 2. pMemoryProperties points to valid memory for a VkPhysicalDeviceMemoryProperties structure
 #[no_mangle]
 pub unsafe extern "C" fn vkGetPhysicalDeviceMemoryProperties(
     physicalDevice: VkPhysicalDevice,

@@ -47,7 +47,10 @@ impl<T> fmt::Debug for Handle<T> {
     }
 }
 
-// Handles are just integers, safe to send between threads
+// SAFETY: Handle<T> is safe to send between threads because:
+// 1. It contains only a u64 value (no references or pointers)
+// 2. The phantom data doesn't affect thread safety
+// 3. Vulkan handles are designed to be thread-safe at the API level
 unsafe impl<T> Send for Handle<T> {}
 unsafe impl<T> Sync for Handle<T> {}
 

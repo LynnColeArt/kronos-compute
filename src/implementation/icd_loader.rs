@@ -113,10 +113,11 @@ pub struct LoadedICD {
     pub cmd_wait_events: PFN_vkCmdWaitEvents,
 }
 
-// LoadedICD is safe to send between threads because:
+// SAFETY: LoadedICD is safe to send between threads because:
 // 1. The library handle is only used for dlclose in Drop
 // 2. Function pointers are immutable once loaded
 // 3. PathBuf is already Send+Sync
+// 4. No mutable state is shared between threads
 unsafe impl Send for LoadedICD {}
 unsafe impl Sync for LoadedICD {}
 
@@ -193,6 +194,10 @@ fn parse_icd_manifest(path: &Path) -> Option<ICDManifest> {
 
 /// Load an ICD library
 pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
+    // SAFETY: This function uses unsafe operations for:
+    // 1. dlopen/dlsym - We ensure the library path is valid and null-terminated
+    // 2. Function pointer transmutation - We trust the Vulkan ICD to provide correct function signatures
+    // 3. The loaded library handle is kept alive for the lifetime of LoadedICD
     unsafe {
         // Load the library
         let lib_cstr = CString::new(library_path.as_os_str().as_bytes())?;
@@ -293,6 +298,9 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
 }
 
 /// Load global function pointers
+// SAFETY: Caller must ensure:
+// 1. icd contains a valid vkGetInstanceProcAddr function pointer
+// 2. The ICD library is loaded and will remain valid for the lifetime of icd
 unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
     let get_proc_addr = icd.vk_get_instance_proc_addr
         .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
@@ -316,6 +324,10 @@ unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
 }
 
 /// Load instance-level functions
+// SAFETY: Caller must ensure:
+// 1. instance is a valid VkInstance created by this ICD
+// 2. icd contains valid function pointers from the same ICD that created the instance
+// 3. The instance will remain valid for at least as long as these functions are used
 pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance) -> Result<(), IcdError> {
     let get_proc_addr = icd.vk_get_instance_proc_addr
         .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
@@ -341,6 +353,10 @@ pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance)
 }
 
 /// Load device-level functions
+// SAFETY: Caller must ensure:
+// 1. device is a valid VkDevice created by this ICD
+// 2. icd contains valid function pointers from the same ICD that created the device
+// 3. The device will remain valid for at least as long as these functions are used
 pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Result<(), IcdError> {
     // Get the function loader
     let get_instance_proc = icd.vk_get_instance_proc_addr
@@ -480,6 +496,10 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
 
 /// Get the loaded ICD
 pub fn get_icd() -> Option<&'static LoadedICD> {
+    // SAFETY: We convert the ICD reference to a static lifetime. This is safe because:
+    // 1. The ICD is stored in a static Mutex (ICD_LOADER)
+    // 2. Once loaded, the ICD is never unloaded during program execution
+    // 3. The returned reference is immutable
     unsafe {
         ICD_LOADER.lock().ok()?.as_ref().map(|icd| {
             &*(icd as *const LoadedICD)

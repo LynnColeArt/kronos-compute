@@ -5,6 +5,11 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Allocate device memory
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pAllocateInfo points to a valid VkMemoryAllocateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pMemory points to valid memory for writing the memory handle
 #[no_mangle]
 pub unsafe extern "C" fn vkAllocateMemory(
     device: VkDevice,
@@ -28,6 +33,11 @@ pub unsafe extern "C" fn vkAllocateMemory(
 }
 
 /// Free device memory
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. memory is a valid VkDeviceMemory allocated with vkAllocateMemory
+// 3. pAllocator matches the allocator used in vkAllocateMemory (or both are null)
+// 4. The memory is not currently mapped
 #[no_mangle]
 pub unsafe extern "C" fn vkFreeMemory(
     device: VkDevice,
@@ -47,6 +57,12 @@ pub unsafe extern "C" fn vkFreeMemory(
 }
 
 /// Map memory for CPU access
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. memory is a valid VkDeviceMemory with the VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+// 3. offset and size are within the allocated memory range
+// 4. ppData points to valid memory for writing the mapped pointer
+// 5. The memory is not already mapped
 #[no_mangle]
 pub unsafe extern "C" fn vkMapMemory(
     device: VkDevice,
@@ -72,6 +88,10 @@ pub unsafe extern "C" fn vkMapMemory(
 }
 
 /// Unmap memory
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. memory is a valid VkDeviceMemory that is currently mapped
+// 3. Any host writes to the mapped memory are complete
 #[no_mangle]
 pub unsafe extern "C" fn vkUnmapMemory(
     device: VkDevice,

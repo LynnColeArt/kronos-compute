@@ -5,6 +5,11 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Create a logical device
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. physicalDevice is a valid VkPhysicalDevice from vkEnumeratePhysicalDevices
+// 2. pCreateInfo points to a valid VkDeviceCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pDevice points to valid memory for writing the device handle
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateDevice(
     physicalDevice: VkPhysicalDevice,
@@ -39,6 +44,10 @@ pub unsafe extern "C" fn vkCreateDevice(
 }
 
 /// Destroy a logical device
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice created by vkCreateDevice
+// 2. pAllocator matches the allocator used in vkCreateDevice (or both are null)
+// 3. All objects created from this device have been destroyed
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyDevice(
     device: VkDevice,
@@ -57,6 +66,10 @@ pub unsafe extern "C" fn vkDestroyDevice(
 }
 
 /// Get a device queue
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. queueFamilyIndex and queueIndex are valid for this device
+// 3. pQueue points to valid memory for writing the queue handle
 #[no_mangle]
 pub unsafe extern "C" fn vkGetDeviceQueue(
     device: VkDevice,
@@ -77,6 +90,11 @@ pub unsafe extern "C" fn vkGetDeviceQueue(
 }
 
 /// Submit work to a queue
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. queue is a valid VkQueue obtained from vkGetDeviceQueue
+// 2. If submitCount > 0, pSubmits points to an array of valid VkSubmitInfo structures
+// 3. fence is either VK_NULL_HANDLE or a valid VkFence
+// 4. All command buffers, semaphores, and other resources referenced are valid
 #[no_mangle]
 pub unsafe extern "C" fn vkQueueSubmit(
     queue: VkQueue,
