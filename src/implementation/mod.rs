@@ -2,6 +2,7 @@
 
 use std::sync::Mutex;
 
+pub mod error;
 pub mod instance;
 pub mod device;
 pub mod memory;
@@ -27,8 +28,8 @@ lazy_static::lazy_static! {
 }
 
 /// Initialize Kronos (loads ICD if available)
-pub fn initialize_kronos() -> Result<(), String> {
-    let mut initialized = ICD_INITIALIZED.lock().unwrap();
+pub fn initialize_kronos() -> Result<(), error::KronosError> {
+    let mut initialized = ICD_INITIALIZED.lock()?;
     if *initialized {
         return Ok(());
     }

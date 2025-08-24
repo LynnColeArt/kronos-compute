@@ -23,9 +23,10 @@ pub unsafe extern "C" fn vkCreateDevice(
             
             // If successful, load device functions
             if result == VkResult::Success {
-                let mut icd_mut = super::icd_loader::ICD_LOADER.lock().unwrap();
-                if let Some(icd) = icd_mut.as_mut() {
-                    super::icd_loader::load_device_functions(icd, *pDevice);
+                if let Ok(mut icd_mut) = super::icd_loader::ICD_LOADER.lock() {
+                    if let Some(icd) = icd_mut.as_mut() {
+                        let _ = super::icd_loader::load_device_functions(icd, *pDevice);
+                    }
                 }
             }
             

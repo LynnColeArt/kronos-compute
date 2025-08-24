@@ -11,6 +11,7 @@ use libc::{c_void, c_char};
 use crate::sys::*;
 use crate::core::{VkBufferCopy, VkDescriptorPoolResetFlags};
 use crate::ffi::*;
+use super::error::{IcdError, KronosError};
 
 /// ICD discovery paths
 const ICD_SEARCH_PATHS: &[&str] = &[
@@ -191,25 +192,24 @@ fn parse_icd_manifest(path: &Path) -> Option<ICDManifest> {
 }
 
 /// Load an ICD library
-pub fn load_icd(library_path: &Path) -> Result<LoadedICD, String> {
+pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
     unsafe {
         // Load the library
-        let lib_cstr = CString::new(library_path.as_os_str().as_bytes())
-            .map_err(|_| "Invalid library path")?;
+        let lib_cstr = CString::new(library_path.as_os_str().as_bytes())?;
         
         let handle = libc::dlopen(lib_cstr.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
         if handle.is_null() {
             let error = CStr::from_ptr(libc::dlerror()).to_string_lossy();
-            return Err(format!("Failed to load library: {}", error));
+            return Err(IcdError::LibraryLoadFailed(format!("{}: {}", library_path.display(), error)));
         }
         
         // Get vkGetInstanceProcAddr
-        let get_instance_proc_addr_name = CString::new("vkGetInstanceProcAddr").unwrap();
+        let get_instance_proc_addr_name = CString::new("vkGetInstanceProcAddr")?;
         let get_instance_proc_addr_ptr = libc::dlsym(handle, get_instance_proc_addr_name.as_ptr());
         
         if get_instance_proc_addr_ptr.is_null() {
             libc::dlclose(handle);
-            return Err("Failed to find vkGetInstanceProcAddr".to_string());
+            return Err(IcdError::MissingFunction("vkGetInstanceProcAddr"));
         }
         
         let vk_get_instance_proc_addr: PFN_vkGetInstanceProcAddr = 
@@ -293,13 +293,16 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, String> {
 }
 
 /// Load global function pointers
-unsafe fn load_global_functions(icd: &mut LoadedICD) {
-    let get_proc_addr = icd.vk_get_instance_proc_addr.expect("vkGetInstanceProcAddr should be loaded");
+unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
+    let get_proc_addr = icd.vk_get_instance_proc_addr
+        .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
     
     // Helper macro to load functions
     macro_rules! load_fn {
         ($name:ident, $fn_name:expr) => {
-            let name = CString::new($fn_name).unwrap();
+            // These are static strings, so they won't have null bytes
+            let name = CString::new($fn_name)
+                .expect(concat!("Invalid function name: ", $fn_name));
             if let Some(addr) = get_proc_addr(VkInstance::NULL, name.as_ptr()) {
                 icd.$name = std::mem::transmute(addr);
             }
@@ -309,15 +312,18 @@ unsafe fn load_global_functions(icd: &mut LoadedICD) {
     // Load instance creation functions
     load_fn!(create_instance, "vkCreateInstance");
     load_fn!(enumerate_physical_devices, "vkEnumeratePhysicalDevices");
+    Ok(())
 }
 
 /// Load instance-level functions
-pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance) {
-    let get_proc_addr = icd.vk_get_instance_proc_addr.expect("vkGetInstanceProcAddr should be loaded");
+pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance) -> Result<(), IcdError> {
+    let get_proc_addr = icd.vk_get_instance_proc_addr
+        .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
     
     macro_rules! load_fn {
         ($name:ident, $fn_name:expr) => {
-            let name = CString::new($fn_name).unwrap();
+            let name = CString::new($fn_name)
+                .expect(concat!("Invalid function name: ", $fn_name));
             if let Some(addr) = get_proc_addr(instance, name.as_ptr()) {
                 icd.$name = std::mem::transmute(addr);
             }
@@ -331,10 +337,15 @@ pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance)
     load_fn!(get_physical_device_memory_properties, "vkGetPhysicalDeviceMemoryProperties");
     load_fn!(create_device, "vkCreateDevice");
     load_fn!(get_device_proc_addr, "vkGetDeviceProcAddr");
+    Ok(())
 }
 
 /// Load device-level functions
-pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) {
+pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Result<(), IcdError> {
+    // Get the function loader
+    let get_instance_proc = icd.vk_get_instance_proc_addr
+        .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
+    
     // Helper function to get proc address
     let get_proc_addr_helper = |name: *const c_char| -> PFN_vkVoidFunction {
         if let Some(get_device_proc_fn) = icd.get_device_proc_addr {
@@ -342,14 +353,14 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) {
         } else {
             // Fall back to instance proc addr
             let instance = VkInstance::NULL; // We'd need to track this
-            let get_instance_proc = icd.vk_get_instance_proc_addr.expect("vkGetInstanceProcAddr should be loaded");
             get_instance_proc(instance, name)
         }
     };
     
     macro_rules! load_fn {
         ($name:ident, $fn_name:expr) => {
-            let name = CString::new($fn_name).unwrap();
+            let name = CString::new($fn_name)
+                .expect(concat!("Invalid function name: ", $fn_name));
             if let Some(addr) = get_proc_addr_helper(name.as_ptr()) {
                 icd.$name = std::mem::transmute(addr);
             }
@@ -428,14 +439,15 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) {
     load_fn!(cmd_set_event, "vkCmdSetEvent");
     load_fn!(cmd_reset_event, "vkCmdResetEvent");
     load_fn!(cmd_wait_events, "vkCmdWaitEvents");
+    Ok(())
 }
 
 /// Initialize the ICD loader
-pub fn initialize_icd_loader() -> Result<(), String> {
+pub fn initialize_icd_loader() -> Result<(), IcdError> {
     let icd_files = discover_icds();
     
     if icd_files.is_empty() {
-        return Err("No Vulkan ICDs found".to_string());
+        return Err(IcdError::NoManifestsFound);
     }
     
     // Try to load each ICD
@@ -445,13 +457,15 @@ pub fn initialize_icd_loader() -> Result<(), String> {
                 PathBuf::from(&manifest.library_path)
             } else {
                 // Relative to manifest file
-                icd_file.parent().unwrap().join(&manifest.library_path)
+                icd_file.parent()
+                    .ok_or_else(|| IcdError::InvalidPath(format!("Manifest file has no parent directory: {:?}", icd_file)))?
+                    .join(&manifest.library_path)
             };
             
             match load_icd(&lib_path) {
                 Ok(icd) => {
                     println!("Loaded ICD: {:?}", lib_path);
-                    *ICD_LOADER.lock().unwrap() = Some(icd);
+                    *ICD_LOADER.lock()? = Some(icd);
                     return Ok(());
                 }
                 Err(e) => {
@@ -461,13 +475,13 @@ pub fn initialize_icd_loader() -> Result<(), String> {
         }
     }
     
-    Err("Failed to load any Vulkan ICD".to_string())
+    Err(IcdError::InvalidManifest("Failed to load any Vulkan ICD".to_string()))
 }
 
 /// Get the loaded ICD
 pub fn get_icd() -> Option<&'static LoadedICD> {
     unsafe {
-        ICD_LOADER.lock().unwrap().as_ref().map(|icd| {
+        ICD_LOADER.lock().ok()?.as_ref().map(|icd| {
             &*(icd as *const LoadedICD)
         })
     }
