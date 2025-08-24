@@ -1,5 +1,9 @@
 # Kronos Compute 🚀
 
+[![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
+[![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
+[![License](https://img.shields.io/crates/l/kronos-compute.svg)](https://github.com/LynnColeArt/kronos-compute)
+
 A high-performance, compute-only Vulkan implementation in Rust, featuring state-of-the-art GPU compute optimizations.
 
 ## Overview
@@ -82,10 +86,13 @@ kronos/
 
 ## 🛠️ Installation
 
-### From crates.io (Coming Soon)
+### From crates.io
 ```bash
 cargo add kronos-compute
 ```
+
+[![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
+[![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
 
 ### From Source
 
