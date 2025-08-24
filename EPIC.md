@@ -33,11 +33,26 @@ Real Vulkan Driver (nvidia, amd, intel, etc.)
 - Removal of all graphics-only code
 - Thread-safe implementations
 - Basic test suite
+- **Production Error Handling** - Complete unwrap() elimination with proper error types
+- **Critical Safety Documentation** - Core ICD loader, memory, device, and instance functions
 
 ### 🚧 In Progress
-- Production hardening (removing unwraps, adding safety docs)
+- **Safety Documentation Gap** - 55/72 unsafe functions need documentation (68% remaining)
+  - Priority: buffer.rs, sync.rs, descriptor.rs, pipeline.rs
+  - Risk: Memory safety and threading contract unclear
 - Cross-platform support
 - Comprehensive documentation
+
+### ⚠️ QA Findings (Latest Review)
+**Error Handling**: ✅ Production Ready
+- Zero unwrap() calls, robust error propagation
+- Comprehensive null pointer validation
+- Proper mutex handling with poison recovery
+
+**Safety Documentation**: ❌ Production Blocker  
+- Only 32% coverage (23/72 unsafe functions documented)
+- 4 entire modules lack safety comments
+- FFI boundary contracts undocumented
 
 ### 📋 Pending
 See [TODO.md](TODO.md) for detailed task list.

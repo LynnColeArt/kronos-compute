@@ -5,6 +5,12 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Create a buffer
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice created by vkCreateDevice
+// 2. pCreateInfo points to a valid VkBufferCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pBuffer points to valid memory for writing the buffer handle
+// 5. All fields in pCreateInfo are valid (size > 0, valid usage flags, etc.)
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateBuffer(
     device: VkDevice,
@@ -28,6 +34,12 @@ pub unsafe extern "C" fn vkCreateBuffer(
 }
 
 /// Destroy a buffer
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. buffer is a valid VkBuffer created by vkCreateBuffer, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateBuffer (or both are null)
+// 4. The buffer is not currently bound to memory or in use by any operations
+// 5. All command buffers using this buffer have completed execution
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyBuffer(
     device: VkDevice,
@@ -47,6 +59,11 @@ pub unsafe extern "C" fn vkDestroyBuffer(
 }
 
 /// Get buffer memory requirements
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. buffer is a valid VkBuffer created by vkCreateBuffer
+// 3. pMemoryRequirements points to valid memory for a VkMemoryRequirements structure
+// 4. The buffer has not been destroyed
 #[no_mangle]
 pub unsafe extern "C" fn vkGetBufferMemoryRequirements(
     device: VkDevice,
@@ -66,6 +83,13 @@ pub unsafe extern "C" fn vkGetBufferMemoryRequirements(
 }
 
 /// Bind buffer to memory
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. buffer is a valid VkBuffer that has not been bound to memory yet
+// 3. memory is a valid VkDeviceMemory allocated with vkAllocateMemory
+// 4. memoryOffset + buffer.size <= memory.size (fits within allocated memory)
+// 5. The memory type is compatible with the buffer's memory requirements
+// 6. Neither buffer nor memory are currently in use by GPU operations
 #[no_mangle]
 pub unsafe extern "C" fn vkBindBufferMemory(
     device: VkDevice,

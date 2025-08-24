@@ -7,6 +7,12 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Create a fence
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkFenceCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pFence points to valid memory for writing the fence handle
+// 5. Fences are thread-safe and can be used across multiple threads
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateFence(
     device: VkDevice,
@@ -30,6 +36,12 @@ pub unsafe extern "C" fn vkCreateFence(
 }
 
 /// Destroy a fence
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. fence is a valid VkFence created by vkCreateFence, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateFence (or both are null)
+// 4. The fence is not currently being waited on by any thread
+// 5. No queue operations are pending on this fence
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyFence(
     device: VkDevice,
@@ -49,6 +61,12 @@ pub unsafe extern "C" fn vkDestroyFence(
 }
 
 /// Reset fences
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. fenceCount is > 0 and matches the number of fences in pFences array
+// 3. pFences points to an array of fenceCount valid VkFence handles
+// 4. All fences are in the signaled state (cannot reset unsignaled fences)
+// 5. No threads are currently waiting on these fences
 #[no_mangle]
 pub unsafe extern "C" fn vkResetFences(
     device: VkDevice,
@@ -71,6 +89,11 @@ pub unsafe extern "C" fn vkResetFences(
 }
 
 /// Get fence status
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. fence is a valid VkFence created by vkCreateFence
+// 3. This function is thread-safe and can be called concurrently
+// 4. The fence has not been destroyed
 #[no_mangle]
 pub unsafe extern "C" fn vkGetFenceStatus(
     device: VkDevice,
@@ -92,6 +115,13 @@ pub unsafe extern "C" fn vkGetFenceStatus(
 }
 
 /// Wait for fences
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. fenceCount is > 0 and matches the number of fences in pFences array
+// 3. pFences points to an array of fenceCount valid VkFence handles
+// 4. waitAll is either VK_TRUE or VK_FALSE
+// 5. timeout value is valid (can be UINT64_MAX for infinite wait)
+// 6. This function may block the calling thread until timeout or fence signaling
 #[no_mangle]
 pub unsafe extern "C" fn vkWaitForFences(
     device: VkDevice,
@@ -116,6 +146,12 @@ pub unsafe extern "C" fn vkWaitForFences(
 }
 
 /// Create a semaphore
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkSemaphoreCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pSemaphore points to valid memory for writing the semaphore handle
+// 5. Semaphores are used for GPU-GPU synchronization and queue ordering
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateSemaphore(
     device: VkDevice,
@@ -139,6 +175,12 @@ pub unsafe extern "C" fn vkCreateSemaphore(
 }
 
 /// Destroy a semaphore
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. semaphore is a valid VkSemaphore created by vkCreateSemaphore, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateSemaphore (or both are null)
+// 4. The semaphore is not pending in any queue operation
+// 5. No command buffers reference this semaphore in wait or signal operations
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroySemaphore(
     device: VkDevice,
@@ -158,6 +200,12 @@ pub unsafe extern "C" fn vkDestroySemaphore(
 }
 
 /// Create an event
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkEventCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pEvent points to valid memory for writing the event handle
+// 5. Events provide fine-grained synchronization within command buffers
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateEvent(
     device: VkDevice,
@@ -181,6 +229,12 @@ pub unsafe extern "C" fn vkCreateEvent(
 }
 
 /// Destroy an event
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. event is a valid VkEvent created by vkCreateEvent, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateEvent (or both are null)
+// 4. No command buffers are currently waiting on or setting this event
+// 5. All command buffers that reference this event have completed execution
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyEvent(
     device: VkDevice,
@@ -200,6 +254,11 @@ pub unsafe extern "C" fn vkDestroyEvent(
 }
 
 /// Get event status
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. event is a valid VkEvent created by vkCreateEvent
+// 3. This function can be called from the host to check event signaling state
+// 4. The event has not been destroyed
 #[no_mangle]
 pub unsafe extern "C" fn vkGetEventStatus(
     device: VkDevice,
@@ -221,6 +280,12 @@ pub unsafe extern "C" fn vkGetEventStatus(
 }
 
 /// Set event
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. event is a valid VkEvent created by vkCreateEvent
+// 3. Setting an event from the host signals all command buffers waiting on it
+// 4. The event has not been destroyed
+// 5. This can cause command buffers to proceed past vkCmdWaitEvents
 #[no_mangle]
 pub unsafe extern "C" fn vkSetEvent(
     device: VkDevice,
@@ -242,6 +307,12 @@ pub unsafe extern "C" fn vkSetEvent(
 }
 
 /// Reset event
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. event is a valid VkEvent created by vkCreateEvent
+// 3. Resetting an event puts it back into the unsignaled state
+// 4. The event has not been destroyed
+// 5. No command buffers should be waiting on this event when reset
 #[no_mangle]
 pub unsafe extern "C" fn vkResetEvent(
     device: VkDevice,
