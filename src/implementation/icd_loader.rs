@@ -169,10 +169,17 @@ pub struct LoadedICD {
 unsafe impl Send for LoadedICD {}
 unsafe impl Sync for LoadedICD {}
 
+/// ICD manifest root structure
+#[derive(Debug, Deserialize, Serialize)]
+struct ICDManifestRoot {
+    file_format_version: String,
+    #[serde(rename = "ICD")]
+    icd: ICDManifest,
+}
+
 /// ICD manifest structure
 #[derive(Debug, Deserialize, Serialize)]
 struct ICDManifest {
-    file_format_version: String,
     library_path: String,
     api_version: Option<String>,
 }
@@ -226,15 +233,15 @@ fn parse_icd_manifest(path: &Path) -> Option<ICDManifest> {
     let content = fs::read_to_string(path).ok()?;
     
     // Parse JSON using serde_json
-    match serde_json::from_str::<ICDManifest>(&content) {
-        Ok(manifest) => {
-            if manifest.library_path.is_empty() {
+    match serde_json::from_str::<ICDManifestRoot>(&content) {
+        Ok(manifest_root) => {
+            if manifest_root.icd.library_path.is_empty() {
                 warn!("ICD manifest has empty library_path: {}", path.display());
                 return None;
             }
             debug!("Successfully parsed ICD manifest: {} -> {}", 
-                   path.display(), manifest.library_path);
-            Some(manifest)
+                   path.display(), manifest_root.icd.library_path);
+            Some(manifest_root.icd)
         }
         Err(e) => {
             warn!("Failed to parse ICD manifest {}: {}", path.display(), e);
@@ -259,13 +266,13 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
             return Err(IcdError::LibraryLoadFailed(format!("{}: {}", library_path.display(), error)));
         }
         
-        // Get vkGetInstanceProcAddr
-        let get_instance_proc_addr_name = CString::new("vkGetInstanceProcAddr")?;
+        // Get vk_icdGetInstanceProcAddr (ICD entry point)
+        let get_instance_proc_addr_name = CString::new("vk_icdGetInstanceProcAddr")?;
         let get_instance_proc_addr_ptr = libc::dlsym(handle, get_instance_proc_addr_name.as_ptr());
         
         if get_instance_proc_addr_ptr.is_null() {
             libc::dlclose(handle);
-            return Err(IcdError::MissingFunction("vkGetInstanceProcAddr"));
+            return Err(IcdError::MissingFunction("vk_icdGetInstanceProcAddr"));
         }
         
         let vk_get_instance_proc_addr: PFN_vkGetInstanceProcAddr = 
@@ -370,7 +377,10 @@ unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
     
     // Load instance creation functions
     load_fn!(create_instance, "vkCreateInstance");
-    load_fn!(enumerate_physical_devices, "vkEnumeratePhysicalDevices");
+    
+    debug!("Loaded global functions - create_instance: {:?}",
+           icd.create_instance.is_some());
+    
     Ok(())
 }
 
@@ -395,11 +405,16 @@ pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance)
     
     // Load instance functions
     load_fn!(destroy_instance, "vkDestroyInstance");
+    load_fn!(enumerate_physical_devices, "vkEnumeratePhysicalDevices");
     load_fn!(get_physical_device_properties, "vkGetPhysicalDeviceProperties");
     load_fn!(get_physical_device_queue_family_properties, "vkGetPhysicalDeviceQueueFamilyProperties");
     load_fn!(get_physical_device_memory_properties, "vkGetPhysicalDeviceMemoryProperties");
     load_fn!(create_device, "vkCreateDevice");
     load_fn!(get_device_proc_addr, "vkGetDeviceProcAddr");
+    
+    debug!("Loaded instance functions - enumerate_physical_devices: {:?}",
+           icd.enumerate_physical_devices.is_some());
+    
     Ok(())
 }
 
@@ -511,11 +526,15 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Re
 
 /// Initialize the ICD loader
 pub fn initialize_icd_loader() -> Result<(), IcdError> {
+    info!("Initializing ICD loader...");
     let icd_files = discover_icds();
     
     if icd_files.is_empty() {
+        warn!("No ICD manifest files found");
         return Err(IcdError::NoManifestsFound);
     }
+    
+    info!("Found {} ICD manifest files", icd_files.len());
     
     // Try to load each ICD
     for icd_file in icd_files {

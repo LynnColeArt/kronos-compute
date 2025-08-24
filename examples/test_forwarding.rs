@@ -5,6 +5,9 @@ use std::ptr;
 use std::ffi::CString;
 
 fn main() {
+    // Initialize logging
+    env_logger::init();
+    
     unsafe {
         println!("Testing Kronos Compute Forwarding...\n");
         

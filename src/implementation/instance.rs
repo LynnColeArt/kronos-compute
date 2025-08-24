@@ -84,7 +84,11 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(enumerate_physical_devices) = icd.enumerate_physical_devices {
             return enumerate_physical_devices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+        } else {
+            log::warn!("ICD loaded but enumerate_physical_devices function pointer is null");
         }
+    } else {
+        log::warn!("No ICD available for enumerate_physical_devices");
     }
     
     // No ICD available

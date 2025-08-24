@@ -40,11 +40,13 @@ pub fn initialize_kronos() -> Result<(), error::KronosError> {
     match icd_loader::initialize_icd_loader() {
         Ok(()) => {
             *initialized = true;
+            log::info!("Kronos initialized successfully with ICD forwarding");
             Ok(())
         }
         Err(e) => {
             // Log the error but don't fail initialization
             warn!("Failed to initialize Vulkan ICD loader: {}", e);
+            *initialized = true; // Mark as initialized even without ICD
             Ok(())
         }
     }
