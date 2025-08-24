@@ -134,6 +134,28 @@ pub unsafe extern "C" fn vkCreateShaderModule(
     VkResult::Success
 }
 
+/// Destroy shader module
+#[no_mangle]
+pub unsafe extern "C" fn vkDestroyShaderModule(
+    device: VkDevice,
+    shaderModule: VkShaderModule,
+    pAllocator: *const VkAllocationCallbacks,
+) {
+    if device.is_null() || shaderModule.is_null() {
+        return;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(destroy_shader_module) = icd.destroy_shader_module {
+            destroy_shader_module(device, shaderModule, pAllocator);
+            return;
+        }
+    }
+    
+    SHADER_MODULES.lock().unwrap().remove(&shaderModule.as_raw());
+}
+
 /// Create compute pipelines
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateComputePipelines(
@@ -177,6 +199,28 @@ pub unsafe extern "C" fn vkCreateComputePipelines(
     }
     
     VkResult::Success
+}
+
+/// Destroy pipeline
+#[no_mangle]
+pub unsafe extern "C" fn vkDestroyPipeline(
+    device: VkDevice,
+    pipeline: VkPipeline,
+    pAllocator: *const VkAllocationCallbacks,
+) {
+    if device.is_null() || pipeline.is_null() {
+        return;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(destroy_pipeline) = icd.destroy_pipeline {
+            destroy_pipeline(device, pipeline, pAllocator);
+            return;
+        }
+    }
+    
+    PIPELINES.lock().unwrap().remove(&pipeline.as_raw());
 }
 
 /// Create pipeline layout
@@ -230,6 +274,28 @@ pub unsafe extern "C" fn vkCreatePipelineLayout(
     
     *pPipelineLayout = handle;
     VkResult::Success
+}
+
+/// Destroy pipeline layout
+#[no_mangle]
+pub unsafe extern "C" fn vkDestroyPipelineLayout(
+    device: VkDevice,
+    pipelineLayout: VkPipelineLayout,
+    pAllocator: *const VkAllocationCallbacks,
+) {
+    if device.is_null() || pipelineLayout.is_null() {
+        return;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(destroy_pipeline_layout) = icd.destroy_pipeline_layout {
+            destroy_pipeline_layout(device, pipelineLayout, pAllocator);
+            return;
+        }
+    }
+    
+    PIPELINE_LAYOUTS.lock().unwrap().remove(&pipelineLayout.as_raw());
 }
 
 /// Create command pool
