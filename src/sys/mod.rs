@@ -129,6 +129,12 @@ pub const VK_FALSE: VkBool32 = 0;
 pub const VK_WHOLE_SIZE: VkDeviceSize = !0;
 pub const VK_QUEUE_FAMILY_IGNORED: u32 = !0;
 
+// Size limits  
+pub const VK_MAX_PHYSICAL_DEVICE_NAME_SIZE: usize = 256;
+pub const VK_UUID_SIZE: usize = 16;
+pub const VK_MAX_MEMORY_HEAPS: usize = 16;
+pub const VK_MAX_MEMORY_TYPES: usize = 32;
+
 // API version
 pub const VK_API_VERSION_1_0: u32 = (1 << 22) | (0 << 12) | 0;
 

@@ -6,6 +6,9 @@ use std::ffi::{c_char, c_void};
 use crate::sys::*;
 use crate::core::*;
 
+// Vulkan error constants
+pub const VK_ERROR_OUT_OF_POOL_MEMORY: i32 = -1000069000;
+
 /// Result codes for Kronos API operations
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -29,7 +32,7 @@ pub enum VkResult {
     ErrorFormatNotSupported = -11,
     ErrorFragmentedPool = -12,
     ErrorUnknown = -13,
-    ErrorOutOfPoolMemory = -1000069000,
+    ErrorOutOfPoolMemory = VK_ERROR_OUT_OF_POOL_MEMORY,
 }
 
 /// Allocation callbacks (optional)
@@ -487,8 +490,8 @@ pub struct VkPhysicalDeviceProperties {
     pub vendorID: u32,
     pub deviceID: u32,
     pub deviceType: VkPhysicalDeviceType,
-    pub deviceName: [c_char; 256],
-    pub pipelineCacheUUID: [u8; 16],
+    pub deviceName: [c_char; VK_MAX_PHYSICAL_DEVICE_NAME_SIZE],
+    pub pipelineCacheUUID: [u8; VK_UUID_SIZE],
     pub limits: VkPhysicalDeviceLimits,
     pub sparseProperties: VkPhysicalDeviceSparseProperties,
 }

@@ -202,9 +202,9 @@ pub struct VkMemoryHeap {
 #[derive(Debug, Clone, Copy)]
 pub struct VkPhysicalDeviceMemoryProperties {
     pub memoryTypeCount: u32,
-    pub memoryTypes: [VkMemoryType; 32],
+    pub memoryTypes: [VkMemoryType; VK_MAX_MEMORY_TYPES],
     pub memoryHeapCount: u32,
-    pub memoryHeaps: [VkMemoryHeap; 16],
+    pub memoryHeaps: [VkMemoryHeap; VK_MAX_MEMORY_HEAPS],
 }
 
 /// Memory type cache for O(1) lookups

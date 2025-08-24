@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
 use libc::{c_void, c_char};
-use log::{info, warn, error};
+use log::{info, warn, error, debug};
+use serde::{Deserialize, Serialize};
 use crate::sys::*;
 use crate::core::{VkBufferCopy, VkDescriptorPoolResetFlags};
 use crate::ffi::*;
@@ -169,7 +170,7 @@ unsafe impl Send for LoadedICD {}
 unsafe impl Sync for LoadedICD {}
 
 /// ICD manifest structure
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ICDManifest {
     file_format_version: String,
     library_path: String,
@@ -224,32 +225,22 @@ pub fn discover_icds() -> Vec<PathBuf> {
 fn parse_icd_manifest(path: &Path) -> Option<ICDManifest> {
     let content = fs::read_to_string(path).ok()?;
     
-    // Simple JSON parsing for ICD manifest
-    // In production, use serde_json
-    let mut manifest = ICDManifest {
-        file_format_version: String::new(),
-        library_path: String::new(),
-        api_version: None,
-    };
-    
-    // Extract library path (hacky but works for simple manifests)
-    if let Some(start) = content.find("\"library_path\"") {
-        if let Some(colon) = content[start..].find(':') {
-            let value_start = start + colon + 1;
-            if let Some(quote1) = content[value_start..].find('"') {
-                let path_start = value_start + quote1 + 1;
-                if let Some(quote2) = content[path_start..].find('"') {
-                    manifest.library_path = content[path_start..path_start + quote2].to_string();
-                }
+    // Parse JSON using serde_json
+    match serde_json::from_str::<ICDManifest>(&content) {
+        Ok(manifest) => {
+            if manifest.library_path.is_empty() {
+                warn!("ICD manifest has empty library_path: {}", path.display());
+                return None;
             }
+            debug!("Successfully parsed ICD manifest: {} -> {}", 
+                   path.display(), manifest.library_path);
+            Some(manifest)
+        }
+        Err(e) => {
+            warn!("Failed to parse ICD manifest {}: {}", path.display(), e);
+            None
         }
     }
-    
-    if manifest.library_path.is_empty() {
-        return None;
-    }
-    
-    Some(manifest)
 }
 
 /// Load an ICD library
