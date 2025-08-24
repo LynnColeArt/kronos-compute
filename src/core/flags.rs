@@ -69,6 +69,7 @@ bitflags! {
 }
 
 bitflags! {
+    #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct VkPipelineStageFlags: VkFlags {
         const TOP_OF_PIPE = 0x00000001;
@@ -80,6 +81,7 @@ bitflags! {
 }
 
 bitflags! {
+    #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct VkAccessFlags: VkFlags {
         const INDIRECT_COMMAND_READ = 0x00000001;
@@ -128,6 +130,7 @@ bitflags! {
 }
 
 bitflags! {
+    #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct VkDependencyFlags: VkFlags {
         const BY_REGION = 0x00000001;

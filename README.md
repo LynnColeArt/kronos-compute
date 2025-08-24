@@ -49,37 +49,35 @@ pub struct Handle<T> {
 - `VkBufferCreateInfo`: Reordered fields for better packing
 - `VkMemoryTypeCache`: O(1) memory type lookups
 
-## Architecture
+## 📁 Project Structure
 
 ```
 kronos/
 ├── src/
-│   ├── lib.rs          # Main library entry point
-│   ├── sys/            # Low-level FFI types
-│   │   └── mod.rs      # Handle types, constants, results
-│   ├── core/           # Core Kronos types
-│   │   ├── enums.rs    # Compute-only enumerations
-│   │   ├── flags.rs    # Bitflag types
-│   │   ├── structs.rs  # Core structures (optimized)
-│   │   ├── compute.rs  # Compute pipeline structures
-│   │   └── timeline.rs # Timeline semaphore structures
-│   ├── ffi/            # C-compatible function signatures
-│   │   └── mod.rs      # Function pointer types
-│   └── implementation/ # Kronos optimizations
-│       ├── mod.rs                   # Module exports
-│       ├── persistent_descriptors.rs # Zero descriptor updates
-│       ├── barrier_policy.rs        # Smart barrier tracking
-│       ├── timeline_batching.rs     # Batched submissions
-│       ├── pool_allocator.rs        # Zero-allocation memory pools
-│       ├── icd_loader.rs           # Vulkan ICD integration
-│       └── forward.rs              # ICD forwarding layer
-├── benches/            # Performance benchmarks
-│   ├── compute_workloads.rs    # SAXPY, reduction, prefix-sum, GEMM
-│   ├── initialization.rs       # Startup performance
-│   ├── dispatch_throughput.rs  # Dispatch overhead
-│   └── memory_operations.rs    # Allocation benchmarks
-└── examples/
-    └── compute_simple.rs       # Basic usage example
+│   ├── lib.rs              # Main library entry point
+│   ├── sys/                # Low-level FFI types
+│   ├── core/               # Core Kronos types
+│   ├── ffi/                # C-compatible function signatures
+│   └── implementation/     # Kronos optimizations
+├── benches/                # Performance benchmarks
+├── examples/               # Usage examples
+├── tests/                  # Integration and unit tests
+├── shaders/                # SPIR-V compute shaders
+├── scripts/                # Build and validation scripts
+└── docs/                   # Documentation
+    ├── architecture/       # Design documents
+    │   ├── OPTIMIZATION_SUMMARY.md
+    │   ├── VULKAN_COMPARISON.md
+    │   ├── ICD_SUCCESS.md
+    │   └── COMPATIBILITY.md
+    ├── benchmarks/         # Performance results
+    │   └── BENCHMARK_RESULTS.md
+    ├── qa/                 # Quality assurance
+    │   ├── QA_REPORT.md
+    │   ├── MINI_REVIEW.md
+    │   └── TEST_RESULTS.md
+    ├── EPIC.md             # Project epic and vision
+    └── TODO.md             # Development roadmap
 ```
 
 ## 🛠️ Building
@@ -92,8 +90,8 @@ kronos/
 ### Build Steps
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/kronos
-cd kronos/Rust-port
+git clone https://github.com/LynnColeArt/kronos
+cd kronos
 
 # Build with optimizations enabled
 cargo build --release --features implementation
@@ -103,6 +101,10 @@ cargo test --features implementation
 
 # Run benchmarks
 cargo bench --features implementation
+
+# Run validation scripts
+./scripts/validate_bench.sh      # Run all validation tests
+./scripts/amd_bench.sh          # AMD-specific validation
 ```
 
 ## 📊 Benchmarks
@@ -233,6 +235,22 @@ kronos::BatchBuilder::new(queue)
     .submit()?;
 ```
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **Architecture**: Design decisions, optimization details, and comparisons
+  - [Optimization Summary](docs/architecture/OPTIMIZATION_SUMMARY.md) - Mini's 4 optimizations explained
+  - [Vulkan Comparison](docs/architecture/VULKAN_COMPARISON.md) - Differences from standard Vulkan
+  - [ICD Integration](docs/architecture/ICD_SUCCESS.md) - How Kronos integrates with existing drivers
+  
+- **Quality Assurance**: Test results and validation reports
+  - [QA Report](docs/qa/QA_REPORT.md) - Comprehensive validation for Sporkle integration
+  - [Test Results](docs/qa/TEST_RESULTS.md) - Unit and integration test details
+  
+- **Benchmarks**: Performance measurements and analysis
+  - [Benchmark Results](docs/benchmarks/BENCHMARK_RESULTS.md) - Detailed performance metrics
+
 ## 🤝 Contributing
 
 Contributions are welcome! Areas of interest:
@@ -291,3 +309,18 @@ This project is dual-licensed under MIT OR Apache-2.0. See [LICENSE-MIT](LICENSE
 ---
 
 Built with ❤️ and 🦀 for maximum GPU compute performance.
+
+## Citation
+
+If you use Kronos in your research, please cite:
+
+```bibtex
+@software{kronos2025,
+  author = {Cole, Lynn},
+  title = {Kronos: A High-Performance Compute-Only Vulkan Implementation},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  url = {https://github.com/LynnColeArt/kronos}
+}
+```

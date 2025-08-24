@@ -1,28 +1,36 @@
-//! Simple compute example using Kronos Rust API
+//! Simple compute example - vector addition (c = a + b)
+//! 
+//! This demonstrates basic Kronos usage without any of the advanced optimizations
 
-use kronos::*;
+use kronos::sys::*;
+use kronos::core::*;
+use kronos::ffi::*;
 use std::ffi::CString;
 use std::ptr;
 
 fn main() {
-    println!("Kronos Rust Compute Example");
-    println!("===========================");
-    
-    // This is a demonstration of the Rust API structure
-    // In a real implementation, we would link to the Kronos loader
+    println!("Kronos Simple Compute Example");
+    println!("=============================");
     
     unsafe {
-        // 1. Create instance
-        let app_name = CString::new("Kronos Rust Example").unwrap();
+        // Initialize Kronos with ICD forwarding
+        if let Err(e) = kronos::initialize_kronos() {
+            eprintln!("Failed to initialize Kronos: {:?}", e);
+            return;
+        }
+        println!("✓ Kronos initialized");
+        
+        // Create instance
+        let app_name = CString::new("Kronos Simple Compute").unwrap();
         let engine_name = CString::new("Kronos").unwrap();
         
         let app_info = VkApplicationInfo {
             sType: VkStructureType::ApplicationInfo,
             pNext: ptr::null(),
             pApplicationName: app_name.as_ptr(),
-            applicationVersion: make_version(1, 0, 0),
+            applicationVersion: VK_MAKE_VERSION(1, 0, 0),
             pEngineName: engine_name.as_ptr(),
-            engineVersion: KRONOS_API_VERSION,
+            engineVersion: VK_MAKE_VERSION(1, 0, 0),
             apiVersion: VK_API_VERSION_1_0,
         };
         
@@ -37,95 +45,440 @@ fn main() {
             ppEnabledExtensionNames: ptr::null(),
         };
         
-        // In a real implementation, we would call:
-        // let mut instance = VkInstance::NULL;
-        // let result = vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        let mut instance = VkInstance::NULL;
+        let result = kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        if result != VkResult::Success {
+            eprintln!("Failed to create instance: {:?}", result);
+            return;
+        }
+        println!("✓ Instance created");
         
-        println!("Instance create info prepared");
-        println!("  App: {:?}", app_name);
-        println!("  Engine: {:?}", engine_name);
-        println!("  API Version: {}.{}.{}", 
-            (VK_API_VERSION_1_0 >> 22) & 0x3FF,
-            (VK_API_VERSION_1_0 >> 12) & 0x3FF,
-            VK_API_VERSION_1_0 & 0xFFF
-        );
+        // Find physical device with compute support
+        let mut device_count = 0;
+        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         
-        // 2. Demonstrate queue family properties
-        let queue_family = VkQueueFamilyProperties {
-            queueFlags: VkQueueFlags::COMPUTE | VkQueueFlags::TRANSFER,
+        let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
+        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        
+        let mut physical_device = VkPhysicalDevice::NULL;
+        let mut compute_queue_family = u32::MAX;
+        
+        for device in &devices {
+            let mut queue_family_count = 0;
+            kronos::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
+            
+            let mut queue_families = vec![std::mem::zeroed::<VkQueueFamilyProperties>(); queue_family_count as usize];
+            kronos::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
+            
+            for (idx, family) in queue_families.iter().enumerate() {
+                if family.queueFlags.contains(VkQueueFlags::COMPUTE) {
+                    physical_device = *device;
+                    compute_queue_family = idx as u32;
+                    break;
+                }
+            }
+            
+            if physical_device != VkPhysicalDevice::NULL {
+                break;
+            }
+        }
+        
+        if physical_device == VkPhysicalDevice::NULL {
+            eprintln!("No compute-capable device found");
+            kronos::vkDestroyInstance(instance, ptr::null());
+            return;
+        }
+        println!("✓ Found compute-capable device");
+        
+        // Create logical device
+        let queue_priority = 1.0f32;
+        let queue_info = VkDeviceQueueCreateInfo {
+            sType: VkStructureType::DeviceQueueCreateInfo,
+            pNext: ptr::null(),
+            flags: 0,
+            queueFamilyIndex: compute_queue_family,
             queueCount: 1,
-            timestampValidBits: 64,
-            minImageTransferGranularity: VkExtent3D::default(),
+            pQueuePriorities: &queue_priority,
         };
         
-        println!("\nQueue family properties:");
-        println!("  Flags: {:?}", queue_family.queueFlags);
-        println!("  Count: {}", queue_family.queueCount);
-        
-        // 3. Demonstrate memory type cache
-        let mem_cache = VkMemoryTypeCache {
-            hostVisibleCoherent: 2,
-            deviceLocal: 0,
-            hostVisibleCached: 3,
-            deviceLocalLazy: 1,
+        let device_info = VkDeviceCreateInfo {
+            sType: VkStructureType::DeviceCreateInfo,
+            pNext: ptr::null(),
+            flags: 0,
+            queueCreateInfoCount: 1,
+            pQueueCreateInfos: &queue_info,
+            enabledLayerCount: 0,
+            ppEnabledLayerNames: ptr::null(),
+            enabledExtensionCount: 0,
+            ppEnabledExtensionNames: ptr::null(),
+            pEnabledFeatures: ptr::null(),
         };
         
-        println!("\nMemory type cache (O(1) lookup):");
-        println!("  Host Visible Coherent: type {}", mem_cache.hostVisibleCoherent);
-        println!("  Device Local: type {}", mem_cache.deviceLocal);
+        let mut device = VkDevice::NULL;
+        let result = kronos::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
+        if result != VkResult::Success {
+            eprintln!("Failed to create device: {:?}", result);
+            kronos::vkDestroyInstance(instance, ptr::null());
+            return;
+        }
+        println!("✓ Logical device created");
         
-        // 4. Demonstrate buffer creation
+        // Get compute queue
+        let mut compute_queue = VkQueue::NULL;
+        kronos::vkGetDeviceQueue(device, compute_queue_family, 0, &mut compute_queue);
+        println!("✓ Compute queue obtained");
+        
+        // Create buffers
+        const ARRAY_SIZE: usize = 1024;
+        let buffer_size = (ARRAY_SIZE * std::mem::size_of::<f32>()) as VkDeviceSize;
+        
         let buffer_info = VkBufferCreateInfo {
             sType: VkStructureType::BufferCreateInfo,
             pNext: ptr::null(),
-            size: 1024 * 1024, // 1MB
-            usage: VkBufferUsageFlags::STORAGE_BUFFER | VkBufferUsageFlags::TRANSFER_DST,
+            flags: VkBufferCreateFlags::from_bits(0).unwrap(),
+            size: buffer_size,
+            usage: VkBufferUsageFlags::STORAGE_BUFFER,
             sharingMode: VkSharingMode::Exclusive,
             queueFamilyIndexCount: 0,
             pQueueFamilyIndices: ptr::null(),
-            flags: VkBufferCreateFlags::empty(),
         };
         
-        println!("\nBuffer creation info:");
-        println!("  Size: {} bytes", buffer_info.size);
-        println!("  Usage: {:?}", buffer_info.usage);
-        println!("  Structure size: {} bytes (optimized packing)", 
-            std::mem::size_of::<VkBufferCreateInfo>());
+        let mut buffers = [VkBuffer::NULL; 3]; // a, b, c
+        let mut memories = [VkDeviceMemory::NULL; 3];
         
-        // 5. Demonstrate compute pipeline
-        let shader_stage = VkPipelineShaderStageCreateInfo {
-            sType: VkStructureType::PipelineShaderStageCreateInfo,
+        // Get memory properties
+        let mut mem_props: VkPhysicalDeviceMemoryProperties = std::mem::zeroed();
+        kronos::vkGetPhysicalDeviceMemoryProperties(physical_device, &mut mem_props);
+        
+        for i in 0..3 {
+            kronos::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffers[i]);
+            
+            let mut mem_reqs: VkMemoryRequirements = std::mem::zeroed();
+            kronos::vkGetBufferMemoryRequirements(device, buffers[i], &mut mem_reqs);
+            
+            // Find host-visible memory type
+            let mut memory_type = u32::MAX;
+            for j in 0..mem_props.memoryTypeCount {
+                if (mem_reqs.memoryTypeBits & (1 << j)) != 0 &&
+                   mem_props.memoryTypes[j as usize].propertyFlags.contains(VkMemoryPropertyFlags::HOST_VISIBLE) {
+                    memory_type = j;
+                    break;
+                }
+            }
+            
+            let alloc_info = VkMemoryAllocateInfo {
+                sType: VkStructureType::MemoryAllocateInfo,
+                pNext: ptr::null(),
+                allocationSize: mem_reqs.size,
+                memoryTypeIndex: memory_type,
+            };
+            
+            kronos::vkAllocateMemory(device, &alloc_info, ptr::null(), &mut memories[i]);
+            kronos::vkBindBufferMemory(device, buffers[i], memories[i], 0);
+        }
+        println!("✓ Buffers created");
+        
+        // Initialize input data
+        let mut data_a: *mut f32 = ptr::null_mut();
+        let mut data_b: *mut f32 = ptr::null_mut();
+        
+        kronos::vkMapMemory(device, memories[0], 0, buffer_size, 0, &mut data_a as *mut _ as *mut *mut std::ffi::c_void);
+        kronos::vkMapMemory(device, memories[1], 0, buffer_size, 0, &mut data_b as *mut _ as *mut *mut std::ffi::c_void);
+        
+        let slice_a = std::slice::from_raw_parts_mut(data_a, ARRAY_SIZE);
+        let slice_b = std::slice::from_raw_parts_mut(data_b, ARRAY_SIZE);
+        
+        for i in 0..ARRAY_SIZE {
+            slice_a[i] = i as f32;
+            slice_b[i] = (i * 2) as f32;
+        }
+        
+        kronos::vkUnmapMemory(device, memories[0]);
+        kronos::vkUnmapMemory(device, memories[1]);
+        println!("✓ Input data initialized");
+        
+        // Load shader
+        let shader_path = concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/shader.spv");
+        let shader_code = std::fs::read(shader_path).expect("Failed to read shader");
+        let shader_words: Vec<u32> = shader_code.chunks_exact(4)
+            .map(|bytes| u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+            .collect();
+        
+        let shader_create_info = VkShaderModuleCreateInfo {
+            sType: VkStructureType::ShaderModuleCreateInfo,
             pNext: ptr::null(),
             flags: 0,
+            codeSize: shader_code.len(),
+            pCode: shader_words.as_ptr(),
+        };
+        
+        let mut shader_module = VkShaderModule::NULL;
+        kronos::vkCreateShaderModule(device, &shader_create_info, ptr::null(), &mut shader_module);
+        println!("✓ Shader loaded");
+        
+        // Create descriptor set layout
+        let bindings = [
+            VkDescriptorSetLayoutBinding {
+                binding: 0,
+                descriptorType: VkDescriptorType::StorageBuffer,
+                descriptorCount: 1,
+                stageFlags: VkShaderStageFlags::COMPUTE,
+                pImmutableSamplers: ptr::null(),
+            },
+            VkDescriptorSetLayoutBinding {
+                binding: 1,
+                descriptorType: VkDescriptorType::StorageBuffer,
+                descriptorCount: 1,
+                stageFlags: VkShaderStageFlags::COMPUTE,
+                pImmutableSamplers: ptr::null(),
+            },
+            VkDescriptorSetLayoutBinding {
+                binding: 2,
+                descriptorType: VkDescriptorType::StorageBuffer,
+                descriptorCount: 1,
+                stageFlags: VkShaderStageFlags::COMPUTE,
+                pImmutableSamplers: ptr::null(),
+            },
+        ];
+        
+        let layout_create_info = VkDescriptorSetLayoutCreateInfo {
+            sType: VkStructureType::DescriptorSetLayoutCreateInfo,
+            pNext: ptr::null(),
+            flags: 0,
+            bindingCount: 3,
+            pBindings: bindings.as_ptr(),
+        };
+        
+        let mut descriptor_set_layout = VkDescriptorSetLayout::NULL;
+        kronos::vkCreateDescriptorSetLayout(device, &layout_create_info, ptr::null(), &mut descriptor_set_layout);
+        
+        // Create pipeline layout
+        let pipeline_layout_info = VkPipelineLayoutCreateInfo {
+            sType: VkStructureType::PipelineLayoutCreateInfo,
+            pNext: ptr::null(),
+            flags: 0,
+            setLayoutCount: 1,
+            pSetLayouts: &descriptor_set_layout,
+            pushConstantRangeCount: 0,
+            pPushConstantRanges: ptr::null(),
+        };
+        
+        let mut pipeline_layout = VkPipelineLayout::NULL;
+        kronos::vkCreatePipelineLayout(device, &pipeline_layout_info, ptr::null(), &mut pipeline_layout);
+        
+        // Create compute pipeline
+        let entry_point = CString::new("main").unwrap();
+        let stage_info = VkPipelineShaderStageCreateInfo {
+            sType: VkStructureType::PipelineShaderStageCreateInfo,
+            pNext: ptr::null(),
+            flags: VkPipelineShaderStageCreateFlags::from_bits(0).unwrap(),
             stage: VkShaderStageFlagBits::Compute,
-            module: VkShaderModule::NULL,
-            pName: b"main\0".as_ptr() as *const i8,
+            module: shader_module,
+            pName: entry_point.as_ptr(),
             pSpecializationInfo: ptr::null(),
         };
         
         let pipeline_info = VkComputePipelineCreateInfo {
             sType: VkStructureType::ComputePipelineCreateInfo,
             pNext: ptr::null(),
-            flags: VkPipelineCreateFlags::empty(),
-            stage: shader_stage,
-            layout: VkPipelineLayout::NULL,
+            flags: VkPipelineCreateFlags::from_bits(0).unwrap(),
+            stage: stage_info,
+            layout: pipeline_layout,
             basePipelineHandle: VkPipeline::NULL,
             basePipelineIndex: -1,
         };
         
-        println!("\nCompute pipeline info:");
-        println!("  Stage: {:?}", pipeline_info.stage.stage);
-        println!("  Entry point: main");
+        let mut compute_pipeline = VkPipeline::NULL;
+        kronos::vkCreateComputePipelines(device, VkPipelineCache::NULL, 1, &pipeline_info, ptr::null(), &mut compute_pipeline);
+        println!("✓ Compute pipeline created");
         
-        // 6. Show structure sizes comparison
-        println!("\nStructure sizes (Kronos optimized):");
-        println!("  VkPhysicalDeviceFeatures: {} bytes", 
-            std::mem::size_of::<VkPhysicalDeviceFeatures>());
-        println!("  VkBufferCreateInfo: {} bytes", 
-            std::mem::size_of::<VkBufferCreateInfo>());
-        println!("  VkComputePipelineCreateInfo: {} bytes", 
-            std::mem::size_of::<VkComputePipelineCreateInfo>());
+        // Create descriptor pool
+        let pool_size = VkDescriptorPoolSize {
+            type_: VkDescriptorType::StorageBuffer,
+            descriptorCount: 3,
+        };
+        
+        let pool_info = VkDescriptorPoolCreateInfo {
+            sType: VkStructureType::DescriptorPoolCreateInfo,
+            pNext: ptr::null(),
+            flags: VkDescriptorPoolCreateFlags::from_bits(0).unwrap(),
+            maxSets: 1,
+            poolSizeCount: 1,
+            pPoolSizes: &pool_size,
+        };
+        
+        let mut descriptor_pool = VkDescriptorPool::NULL;
+        kronos::vkCreateDescriptorPool(device, &pool_info, ptr::null(), &mut descriptor_pool);
+        
+        // Allocate descriptor set
+        let alloc_info = VkDescriptorSetAllocateInfo {
+            sType: VkStructureType::DescriptorSetAllocateInfo,
+            pNext: ptr::null(),
+            descriptorPool: descriptor_pool,
+            descriptorSetCount: 1,
+            pSetLayouts: &descriptor_set_layout,
+        };
+        
+        let mut descriptor_set = VkDescriptorSet::NULL;
+        kronos::vkAllocateDescriptorSets(device, &alloc_info, &mut descriptor_set);
+        
+        // Update descriptor set
+        let buffer_infos = [
+            VkDescriptorBufferInfo {
+                buffer: buffers[0],
+                offset: 0,
+                range: VkDeviceSize::MAX,
+            },
+            VkDescriptorBufferInfo {
+                buffer: buffers[1],
+                offset: 0,
+                range: VkDeviceSize::MAX,
+            },
+            VkDescriptorBufferInfo {
+                buffer: buffers[2],
+                offset: 0,
+                range: VkDeviceSize::MAX,
+            },
+        ];
+        
+        let writes = [
+            VkWriteDescriptorSet {
+                sType: VkStructureType::WriteDescriptorSet,
+                pNext: ptr::null(),
+                dstSet: descriptor_set,
+                dstBinding: 0,
+                dstArrayElement: 0,
+                descriptorCount: 1,
+                descriptorType: VkDescriptorType::StorageBuffer,
+                pImageInfo: ptr::null(),
+                pBufferInfo: &buffer_infos[0],
+                pTexelBufferView: ptr::null(),
+            },
+            VkWriteDescriptorSet {
+                sType: VkStructureType::WriteDescriptorSet,
+                pNext: ptr::null(),
+                dstSet: descriptor_set,
+                dstBinding: 1,
+                dstArrayElement: 0,
+                descriptorCount: 1,
+                descriptorType: VkDescriptorType::StorageBuffer,
+                pImageInfo: ptr::null(),
+                pBufferInfo: &buffer_infos[1],
+                pTexelBufferView: ptr::null(),
+            },
+            VkWriteDescriptorSet {
+                sType: VkStructureType::WriteDescriptorSet,
+                pNext: ptr::null(),
+                dstSet: descriptor_set,
+                dstBinding: 2,
+                dstArrayElement: 0,
+                descriptorCount: 1,
+                descriptorType: VkDescriptorType::StorageBuffer,
+                pImageInfo: ptr::null(),
+                pBufferInfo: &buffer_infos[2],
+                pTexelBufferView: ptr::null(),
+            },
+        ];
+        
+        kronos::vkUpdateDescriptorSets(device, 3, writes.as_ptr(), 0, ptr::null());
+        println!("✓ Descriptors updated");
+        
+        // Create command pool and buffer
+        let pool_create_info = VkCommandPoolCreateInfo {
+            sType: VkStructureType::CommandPoolCreateInfo,
+            pNext: ptr::null(),
+            flags: VkCommandPoolCreateFlags::from_bits(0).unwrap(),
+            queueFamilyIndex: compute_queue_family,
+        };
+        
+        let mut command_pool = VkCommandPool::NULL;
+        kronos::vkCreateCommandPool(device, &pool_create_info, ptr::null(), &mut command_pool);
+        
+        let cmd_alloc_info = VkCommandBufferAllocateInfo {
+            sType: VkStructureType::CommandBufferAllocateInfo,
+            pNext: ptr::null(),
+            commandPool: command_pool,
+            level: VkCommandBufferLevel::Primary,
+            commandBufferCount: 1,
+        };
+        
+        let mut cmd_buffer = VkCommandBuffer::NULL;
+        kronos::vkAllocateCommandBuffers(device, &cmd_alloc_info, &mut cmd_buffer);
+        
+        // Record commands
+        let begin_info = VkCommandBufferBeginInfo {
+            sType: VkStructureType::CommandBufferBeginInfo,
+            pNext: ptr::null(),
+            flags: VkCommandBufferUsageFlags::ONE_TIME_SUBMIT,
+            pInheritanceInfo: ptr::null(),
+        };
+        
+        kronos::vkBeginCommandBuffer(cmd_buffer, &begin_info);
+        
+        kronos::vkCmdBindPipeline(cmd_buffer, VkPipelineBindPoint::Compute, compute_pipeline);
+        kronos::vkCmdBindDescriptorSets(
+            cmd_buffer,
+            VkPipelineBindPoint::Compute,
+            pipeline_layout,
+            0, 1, &descriptor_set,
+            0, ptr::null()
+        );
+        
+        // Dispatch with workgroup size of 64 (from shader)
+        kronos::vkCmdDispatch(cmd_buffer, (ARRAY_SIZE as u32 + 63) / 64, 1, 1);
+        
+        kronos::vkEndCommandBuffer(cmd_buffer);
+        println!("✓ Commands recorded");
+        
+        // Submit and wait
+        let submit_info = VkSubmitInfo {
+            sType: VkStructureType::SubmitInfo,
+            pNext: ptr::null(),
+            waitSemaphoreCount: 0,
+            pWaitSemaphores: ptr::null(),
+            pWaitDstStageMask: ptr::null(),
+            commandBufferCount: 1,
+            pCommandBuffers: &cmd_buffer,
+            signalSemaphoreCount: 0,
+            pSignalSemaphores: ptr::null(),
+        };
+        
+        kronos::vkQueueSubmit(compute_queue, 1, &submit_info, VkFence::NULL);
+        kronos::vkQueueWaitIdle(compute_queue);
+        println!("✓ Compute work submitted");
+        
+        // Read results
+        let mut data_c: *mut f32 = ptr::null_mut();
+        kronos::vkMapMemory(device, memories[2], 0, buffer_size, 0, &mut data_c as *mut _ as *mut *mut std::ffi::c_void);
+        
+        let slice_c = std::slice::from_raw_parts(data_c, ARRAY_SIZE);
+        
+        // Verify a few results
+        println!("\nResults (first 10 elements):");
+        for i in 0..10 {
+            let expected = i as f32 + (i * 2) as f32;
+            println!("c[{}] = {} (expected {})", i, slice_c[i], expected);
+        }
+        
+        kronos::vkUnmapMemory(device, memories[2]);
+        
+        // Cleanup
+        kronos::vkDestroyCommandPool(device, command_pool, ptr::null());
+        kronos::vkDestroyDescriptorPool(device, descriptor_pool, ptr::null());
+        kronos::vkDestroyPipeline(device, compute_pipeline, ptr::null());
+        kronos::vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
+        kronos::vkDestroyDescriptorSetLayout(device, descriptor_set_layout, ptr::null());
+        kronos::vkDestroyShaderModule(device, shader_module, ptr::null());
+        
+        for i in 0..3 {
+            kronos::vkDestroyBuffer(device, buffers[i], ptr::null());
+            kronos::vkFreeMemory(device, memories[i], ptr::null());
+        }
+        
+        kronos::vkDestroyDevice(device, ptr::null());
+        kronos::vkDestroyInstance(instance, ptr::null());
+        
+        println!("\n✓ Test completed successfully!");
+        println!("This demonstrates basic Kronos compute functionality.");
     }
-    
-    println!("\n✓ Kronos Rust API demonstration complete!");
 }

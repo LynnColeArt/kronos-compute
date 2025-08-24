@@ -9,6 +9,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Benchmark
 use kronos::sys::*;
 use kronos::ffi::*;
 use kronos::core::*;
+use kronos::core::compute::*;
 use kronos::implementation;
 use std::ffi::CString;
 use std::ptr;
@@ -41,6 +42,7 @@ struct OptimizedContext {
     // Persistent descriptors
     descriptor_set: VkDescriptorSet,
     pipeline_layout: VkPipelineLayout,
+    compute_pipeline: VkPipeline,
     
     // Memory pools
     device_buffer_a: VkBuffer,
@@ -90,6 +92,9 @@ fn bench_saxpy(c: &mut Criterion) {
                                     };
                                     
                                     kronos::vkBeginCommandBuffer(cb, &begin_info);
+                                    
+                                    // Bind compute pipeline
+                                    kronos::vkCmdBindPipeline(cb, VkPipelineBindPoint::Compute, ctx.compute_pipeline);
                                     
                                     // Bind persistent descriptor set (no updates!)
                                     kronos::vkCmdBindDescriptorSets(
@@ -212,6 +217,9 @@ fn bench_reduction(c: &mut Criterion) {
                                         };
                                         
                                         kronos::vkBeginCommandBuffer(cb, &begin_info);
+                                        
+                                        // Bind compute pipeline
+                                        kronos::vkCmdBindPipeline(cb, VkPipelineBindPoint::Compute, ctx.compute_pipeline);
                                         
                                         // Bind persistent descriptor set
                                         kronos::vkCmdBindDescriptorSets(
@@ -337,6 +345,9 @@ fn bench_prefix_sum(c: &mut Criterion) {
                                         };
                                         
                                         kronos::vkBeginCommandBuffer(cb, &begin_info);
+                                        
+                                        // Bind compute pipeline
+                                        kronos::vkCmdBindPipeline(cb, VkPipelineBindPoint::Compute, ctx.compute_pipeline);
                                         
                                         // Bind persistent descriptor set
                                         kronos::vkCmdBindDescriptorSets(
@@ -700,8 +711,67 @@ unsafe fn create_optimized_context() -> Option<OptimizedContext> {
     let buffers = vec![device_buffer_a, device_buffer_b, device_buffer_c];
     let descriptor_set = implementation::persistent_descriptors::get_persistent_descriptor_set(device, &buffers).ok()?;
     
-    // Get pipeline layout (simplified - would need actual pipeline creation)
-    let pipeline_layout = VkPipelineLayout::NULL; // Would be created with descriptor set layout
+    // Load shader module
+    let shader_path = concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/shader.spv");
+    let shader_code = std::fs::read(shader_path).ok()?;
+    let shader_words: Vec<u32> = shader_code.chunks_exact(4)
+        .map(|bytes| u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        .collect();
+    
+    let shader_create_info = VkShaderModuleCreateInfo {
+        sType: VkStructureType::ShaderModuleCreateInfo,
+        pNext: ptr::null(),
+        flags: 0,
+        codeSize: shader_code.len(),
+        pCode: shader_words.as_ptr(),
+    };
+    
+    let mut shader_module = VkShaderModule::NULL;
+    kronos::vkCreateShaderModule(device, &shader_create_info, ptr::null(), &mut shader_module);
+    
+    // Create pipeline layout
+    let push_constant_range = VkPushConstantRange {
+        stageFlags: VkShaderStageFlags::COMPUTE,
+        offset: 0,
+        size: 128, // Max push constant size
+    };
+    
+    let layout_create_info = VkPipelineLayoutCreateInfo {
+        sType: VkStructureType::PipelineLayoutCreateInfo,
+        pNext: ptr::null(),
+        flags: VkPipelineLayoutCreateFlags::empty(),
+        setLayoutCount: 1,
+        pSetLayouts: &implementation::persistent_descriptors::get_descriptor_set_layout(device).ok()?,
+        pushConstantRangeCount: 1,
+        pPushConstantRanges: &push_constant_range,
+    };
+    
+    let mut pipeline_layout = VkPipelineLayout::NULL;
+    kronos::vkCreatePipelineLayout(device, &layout_create_info, ptr::null(), &mut pipeline_layout);
+    
+    // Create compute pipeline
+    let stage_info = VkPipelineShaderStageCreateInfo {
+        sType: VkStructureType::PipelineShaderStageCreateInfo,
+        pNext: ptr::null(),
+        flags: VkPipelineShaderStageCreateFlags::empty(),
+        stage: VkShaderStageFlagBits::Compute,
+        module: shader_module,
+        pName: b"main\0".as_ptr() as *const i8,
+        pSpecializationInfo: ptr::null(),
+    };
+    
+    let pipeline_create_info = VkComputePipelineCreateInfo {
+        sType: VkStructureType::ComputePipelineCreateInfo,
+        pNext: ptr::null(),
+        flags: VkPipelineCreateFlags::empty(),
+        stage: stage_info,
+        layout: pipeline_layout,
+        basePipelineHandle: VkPipeline::NULL,
+        basePipelineIndex: -1,
+    };
+    
+    let mut compute_pipeline = VkPipeline::NULL;
+    kronos::vkCreateComputePipelines(device, VkPipelineCache::NULL, 1, &pipeline_create_info, ptr::null(), &mut compute_pipeline);
     
     // Get vendor for barrier optimization
     let mut props = VkPhysicalDeviceProperties {
@@ -724,6 +794,7 @@ unsafe fn create_optimized_context() -> Option<OptimizedContext> {
         command_pool,
         descriptor_set,
         pipeline_layout,
+        compute_pipeline,
         device_buffer_a,
         device_buffer_b,
         device_buffer_c,

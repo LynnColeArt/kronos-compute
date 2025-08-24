@@ -31,6 +31,7 @@ pub struct BatchSubmission {
     wait_values: Vec<u64>,
     wait_stages: Vec<VkPipelineStageFlags>,
     /// Signal value for this batch
+    #[allow(dead_code)]
     signal_value: u64,
 }
 

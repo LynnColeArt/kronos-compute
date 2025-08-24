@@ -16,6 +16,7 @@ use super::error::IcdError;
 const SLAB_SIZE: VkDeviceSize = 256 * 1024;
 
 /// Minimum allocation size (64 KiB)
+#[allow(dead_code)]
 const MIN_ALLOCATION_SIZE: VkDeviceSize = 64 * 1024;
 
 /// Memory pool types

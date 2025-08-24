@@ -1,0 +1,35 @@
+#version 450
+
+// SAXPY: c = a*x + b
+// Classic vector operation benchmark
+
+layout (local_size_x = 256) in;
+
+// Push constants for parameters
+layout(push_constant) uniform Parameters {
+    float alpha;    // scalar multiplier
+    uint count;     // number of elements
+} params;
+
+// Persistent descriptors (Set 0)
+layout(set = 0, binding = 0) readonly buffer BufferA {
+    float a[];
+};
+
+layout(set = 0, binding = 1) readonly buffer BufferB {
+    float b[];
+};
+
+layout(set = 0, binding = 2) writeonly buffer BufferC {
+    float c[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    
+    // Bounds check
+    if (idx >= params.count) return;
+    
+    // SAXPY operation: c = alpha * a + b
+    c[idx] = params.alpha * a[idx] + b[idx];
+}
