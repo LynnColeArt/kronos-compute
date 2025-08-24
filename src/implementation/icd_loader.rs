@@ -8,12 +8,12 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
 use libc::{c_void, c_char};
-use log::{info, warn, error, debug};
+use log::{info, warn, debug};
 use serde::{Deserialize, Serialize};
 use crate::sys::*;
-use crate::core::{VkBufferCopy, VkDescriptorPoolResetFlags};
+use crate::core::*;
 use crate::ffi::*;
-use super::error::{IcdError, KronosError};
+use super::error::IcdError;
 
 /// Get platform-specific ICD search paths
 fn get_icd_search_paths() -> Vec<PathBuf> {
@@ -159,6 +159,9 @@ pub struct LoadedICD {
     pub cmd_set_event: PFN_vkCmdSetEvent,
     pub cmd_reset_event: PFN_vkCmdResetEvent,
     pub cmd_wait_events: PFN_vkCmdWaitEvents,
+    
+    // Timeline semaphore functions
+    pub wait_semaphores: Option<unsafe extern "C" fn(VkDevice, *const VkSemaphoreWaitInfo, u64) -> VkResult>,
 }
 
 // SAFETY: LoadedICD is safe to send between threads because:
@@ -184,8 +187,8 @@ struct ICDManifest {
     api_version: Option<String>,
 }
 
-/// Global ICD loader state
 lazy_static::lazy_static! {
+    // Global ICD loader state
     pub static ref ICD_LOADER: Mutex<Option<LoadedICD>> = Mutex::new(None);
 }
 
@@ -346,6 +349,7 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
             cmd_set_event: None,
             cmd_reset_event: None,
             cmd_wait_events: None,
+            wait_semaphores: None,
         };
         
         // Load global functions
@@ -521,6 +525,10 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Re
     load_fn!(cmd_set_event, "vkCmdSetEvent");
     load_fn!(cmd_reset_event, "vkCmdResetEvent");
     load_fn!(cmd_wait_events, "vkCmdWaitEvents");
+    
+    // Timeline semaphore functions (optional)
+    load_fn!(wait_semaphores, "vkWaitSemaphores");
+    
     Ok(())
 }
 

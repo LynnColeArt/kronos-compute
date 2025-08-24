@@ -66,7 +66,7 @@ impl Default for VkPipelineShaderStageCreateInfo {
         Self {
             sType: VkStructureType::PipelineShaderStageCreateInfo,
             pNext: ptr::null(),
-            flags: 0,
+            flags: VkPipelineShaderStageCreateFlags::empty(),
             stage: VkShaderStageFlagBits::Compute,
             module: VkShaderModule::NULL,
             pName: b"main\0".as_ptr() as *const i8,
@@ -309,6 +309,3 @@ pub enum VkImageLayout {
     TransferSrcOptimal = 6,
     TransferDstOptimal = 7,
 }
-
-// Add missing flags
-pub type VkPipelineShaderStageCreateFlags = VkFlags;

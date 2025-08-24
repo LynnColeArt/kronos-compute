@@ -13,6 +13,10 @@ pub mod descriptor;
 pub mod sync;
 pub mod icd_loader;
 pub mod forward;
+pub mod persistent_descriptors;
+pub mod barrier_policy;
+pub mod timeline_batching;
+pub mod pool_allocator;
 
 // Re-export all implementation functions
 pub use instance::*;

@@ -31,6 +31,10 @@ pub enum VkStructureType {
     BufferMemoryBarrier = 44,
     MemoryBarrier = 46,
     PipelineCacheCreateInfo = 47,
+    // Timeline semaphore extensions
+    SemaphoreTypeCreateInfo = 1000207002,
+    TimelineSemaphoreSubmitInfo = 1000207003,
+    SemaphoreWaitInfo = 1000207004,
 }
 
 /// Queue capability flags
@@ -145,4 +149,23 @@ pub enum VkAccessFlagBits {
     HostWrite = 0x00004000,
     MemoryRead = 0x00008000,
     MemoryWrite = 0x00010000,
+}
+
+/// Semaphore type
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VkSemaphoreType {
+    Binary = 0,
+    Timeline = 1,
+}
+
+/// Physical device type
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VkPhysicalDeviceType {
+    Other = 0,
+    IntegratedGpu = 1,
+    DiscreteGpu = 2,
+    VirtualGpu = 3,
+    Cpu = 4,
 }

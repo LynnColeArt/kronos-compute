@@ -57,6 +57,10 @@ harness = false
 name = "memory_operations"
 harness = false
 
+[[bench]]
+name = "compute_workloads"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1

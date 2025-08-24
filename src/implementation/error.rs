@@ -1,6 +1,7 @@
 //! Error types for Kronos implementation
 
 use std::fmt;
+use crate::VkResult;
 
 /// Errors that can occur in the ICD loader
 #[derive(Debug)]
@@ -19,6 +20,12 @@ pub enum IcdError {
     MutexPoisoned,
     /// Path has no parent directory
     InvalidPath(String),
+    /// Vulkan API error
+    VulkanError(VkResult),
+    /// Invalid operation
+    InvalidOperation(&'static str),
+    /// No ICD loaded
+    NoIcdLoaded,
 }
 
 impl fmt::Display for IcdError {
@@ -31,6 +38,9 @@ impl fmt::Display for IcdError {
             IcdError::NoManifestsFound => write!(f, "No ICD manifest files found"),
             IcdError::MutexPoisoned => write!(f, "Mutex was poisoned"),
             IcdError::InvalidPath(path) => write!(f, "Invalid path: {}", path),
+            IcdError::VulkanError(result) => write!(f, "Vulkan error: {:?}", result),
+            IcdError::InvalidOperation(op) => write!(f, "Invalid operation: {}", op),
+            IcdError::NoIcdLoaded => write!(f, "No ICD loaded"),
         }
     }
 }

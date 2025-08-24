@@ -207,6 +207,12 @@ pub struct VkPhysicalDeviceMemoryProperties {
     pub memoryHeaps: [VkMemoryHeap; VK_MAX_MEMORY_HEAPS],
 }
 
+impl Default for VkPhysicalDeviceMemoryProperties {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
+
 /// Memory type cache for O(1) lookups
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
@@ -245,6 +251,16 @@ pub struct VkMemoryRequirements {
     pub size: VkDeviceSize,
     pub alignment: VkDeviceSize,
     pub memoryTypeBits: u32,
+}
+
+impl Default for VkMemoryRequirements {
+    fn default() -> Self {
+        Self {
+            size: 0,
+            alignment: 0,
+            memoryTypeBits: 0,
+        }
+    }
 }
 
 /// Fence creation info
@@ -487,6 +503,61 @@ impl Default for VkSubmitInfo {
             signalSemaphoreCount: 0,
             pSignalSemaphores: ptr::null(),
         }
+    }
+}
+
+/// Physical device limits (simplified for compute)
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VkPhysicalDeviceLimits {
+    pub maxComputeSharedMemorySize: u32,
+    pub maxComputeWorkGroupCount: [u32; 3],
+    pub maxComputeWorkGroupInvocations: u32,
+    pub maxComputeWorkGroupSize: [u32; 3],
+    // Add more fields as needed...
+}
+
+impl Default for VkPhysicalDeviceLimits {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
+
+/// Physical device sparse properties
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VkPhysicalDeviceSparseProperties {
+    pub residencyStandard2DBlockShape: VkBool32,
+    pub residencyStandard2DMultisampleBlockShape: VkBool32,
+    pub residencyStandard3DBlockShape: VkBool32,
+    pub residencyAlignedMipSize: VkBool32,
+    pub residencyNonResidentStrict: VkBool32,
+}
+
+impl Default for VkPhysicalDeviceSparseProperties {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
+
+/// Physical device properties
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VkPhysicalDeviceProperties {
+    pub apiVersion: u32,
+    pub driverVersion: u32,
+    pub vendorID: u32,
+    pub deviceID: u32,
+    pub deviceType: VkPhysicalDeviceType,
+    pub deviceName: [c_char; VK_MAX_PHYSICAL_DEVICE_NAME_SIZE],
+    pub pipelineCacheUUID: [u8; VK_UUID_SIZE],
+    pub limits: VkPhysicalDeviceLimits,
+    pub sparseProperties: VkPhysicalDeviceSparseProperties,
+}
+
+impl Default for VkPhysicalDeviceProperties {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
     }
 }
 

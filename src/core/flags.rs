@@ -134,6 +134,21 @@ bitflags! {
     }
 }
 
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct VkSemaphoreWaitFlags: VkFlags {
+        const ANY = 0x00000001;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct VkPipelineShaderStageCreateFlags: VkFlags {
+        // Reserved for future use
+        const RESERVED = 0;
+    }
+}
+
 // Type aliases for flags that don't have specific bits
 pub type VkInstanceCreateFlags = VkFlags;
 pub type VkDeviceCreateFlags = VkFlags;
