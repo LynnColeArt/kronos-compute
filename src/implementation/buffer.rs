@@ -19,6 +19,13 @@ pub unsafe extern "C" fn vkCreateBuffer(
         return VkResult::ErrorInitializationFailed;
     }
     
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_buffer) = icd.create_buffer {
+            return create_buffer(device, pCreateInfo, pAllocator, pBuffer);
+        }
+    }
+    
     let create_info = &*pCreateInfo;
     
     // Validate structure

@@ -103,6 +103,13 @@ pub unsafe extern "C" fn vkCreateShaderModule(
         return VkResult::ErrorInitializationFailed;
     }
     
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_shader_module) = icd.create_shader_module {
+            return create_shader_module(device, pCreateInfo, pAllocator, pShaderModule);
+        }
+    }
+    
     let create_info = &*pCreateInfo;
     
     if create_info.sType != VkStructureType::ShaderModuleCreateInfo {
@@ -184,6 +191,13 @@ pub unsafe extern "C" fn vkCreatePipelineLayout(
         return VkResult::ErrorInitializationFailed;
     }
     
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_pipeline_layout) = icd.create_pipeline_layout {
+            return create_pipeline_layout(device, pCreateInfo, pAllocator, pPipelineLayout);
+        }
+    }
+    
     let create_info = &*pCreateInfo;
     
     if create_info.sType != VkStructureType::PipelineLayoutCreateInfo {
@@ -228,6 +242,13 @@ pub unsafe extern "C" fn vkCreateCommandPool(
 ) -> VkResult {
     if device.is_null() || pCreateInfo.is_null() || pCommandPool.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_command_pool) = icd.create_command_pool {
+            return create_command_pool(device, pCreateInfo, pAllocator, pCommandPool);
+        }
     }
     
     let create_info = &*pCreateInfo;
@@ -284,6 +305,13 @@ pub unsafe extern "C" fn vkAllocateCommandBuffers(
 ) -> VkResult {
     if device.is_null() || pAllocateInfo.is_null() || pCommandBuffers.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(allocate_command_buffers) = icd.allocate_command_buffers {
+            return allocate_command_buffers(device, pAllocateInfo, pCommandBuffers);
+        }
     }
     
     let alloc_info = &*pAllocateInfo;

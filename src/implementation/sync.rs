@@ -41,11 +41,18 @@ struct Event {
 pub unsafe extern "C" fn vkCreateFence(
     device: VkDevice,
     pCreateInfo: *const VkFenceCreateInfo,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
     pFence: *mut VkFence,
 ) -> VkResult {
     if device.is_null() || pCreateInfo.is_null() || pFence.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_fence) = icd.create_fence {
+            return create_fence(device, pCreateInfo, pAllocator, pFence);
+        }
     }
     
     let create_info = &*pCreateInfo;
@@ -210,11 +217,18 @@ pub unsafe extern "C" fn vkWaitForFences(
 pub unsafe extern "C" fn vkCreateSemaphore(
     device: VkDevice,
     pCreateInfo: *const VkSemaphoreCreateInfo,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
     pSemaphore: *mut VkSemaphore,
 ) -> VkResult {
     if device.is_null() || pCreateInfo.is_null() || pSemaphore.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_semaphore) = icd.create_semaphore {
+            return create_semaphore(device, pCreateInfo, pAllocator, pSemaphore);
+        }
     }
     
     let create_info = &*pCreateInfo;
@@ -256,11 +270,18 @@ pub unsafe extern "C" fn vkDestroySemaphore(
 pub unsafe extern "C" fn vkCreateEvent(
     device: VkDevice,
     pCreateInfo: *const VkEventCreateInfo,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
     pEvent: *mut VkEvent,
 ) -> VkResult {
     if device.is_null() || pCreateInfo.is_null() || pEvent.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_event) = icd.create_event {
+            return create_event(device, pCreateInfo, pAllocator, pEvent);
+        }
     }
     
     let create_info = &*pCreateInfo;

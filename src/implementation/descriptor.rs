@@ -62,11 +62,18 @@ enum Descriptor {
 pub unsafe extern "C" fn vkCreateDescriptorSetLayout(
     device: VkDevice,
     pCreateInfo: *const VkDescriptorSetLayoutCreateInfo,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
     pSetLayout: *mut VkDescriptorSetLayout,
 ) -> VkResult {
     if device.is_null() || pCreateInfo.is_null() || pSetLayout.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_descriptor_set_layout) = icd.create_descriptor_set_layout {
+            return create_descriptor_set_layout(device, pCreateInfo, pAllocator, pSetLayout);
+        }
     }
     
     let create_info = &*pCreateInfo;
@@ -136,11 +143,18 @@ pub unsafe extern "C" fn vkDestroyDescriptorSetLayout(
 pub unsafe extern "C" fn vkCreateDescriptorPool(
     device: VkDevice,
     pCreateInfo: *const VkDescriptorPoolCreateInfo,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
     pDescriptorPool: *mut VkDescriptorPool,
 ) -> VkResult {
     if device.is_null() || pCreateInfo.is_null() || pDescriptorPool.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_descriptor_pool) = icd.create_descriptor_pool {
+            return create_descriptor_pool(device, pCreateInfo, pAllocator, pDescriptorPool);
+        }
     }
     
     let create_info = &*pCreateInfo;
@@ -213,6 +227,13 @@ pub unsafe extern "C" fn vkAllocateDescriptorSets(
 ) -> VkResult {
     if device.is_null() || pAllocateInfo.is_null() || pDescriptorSets.is_null() {
         return VkResult::ErrorInitializationFailed;
+    }
+    
+    // Forward to real ICD if enabled
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(allocate_descriptor_sets) = icd.allocate_descriptor_sets {
+            return allocate_descriptor_sets(device, pAllocateInfo, pDescriptorSets);
+        }
     }
     
     let alloc_info = &*pAllocateInfo;
