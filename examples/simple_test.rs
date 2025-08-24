@@ -27,7 +27,7 @@ fn main() {
     let result = VkResult::Success;
     println!("\nEnum tests:");
     println!("  VkResult::Success = {}", result as i32);
-    println!("  Is success? {}", result.is_success());
+    println!("  Is success? {}", result == VkResult::Success);
     
     // 4. Test flags
     let queue_flags = VkQueueFlags::COMPUTE | VkQueueFlags::TRANSFER;

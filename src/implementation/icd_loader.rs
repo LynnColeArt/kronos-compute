@@ -2,14 +2,14 @@
 //! 
 //! Loads real Vulkan drivers and forwards compute calls
 
-use std::ffi::{CStr, CString, OsStr};
+use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
 use libc::{c_void, c_char};
 use crate::sys::*;
-use crate::core::*;
+use crate::core::{VkBufferCopy, VkDescriptorPoolResetFlags};
 use crate::ffi::*;
 
 /// ICD discovery paths
@@ -65,7 +65,9 @@ pub struct LoadedICD {
     pub destroy_descriptor_set_layout: PFN_vkDestroyDescriptorSetLayout,
     pub create_descriptor_pool: PFN_vkCreateDescriptorPool,
     pub destroy_descriptor_pool: PFN_vkDestroyDescriptorPool,
+    pub reset_descriptor_pool: Option<unsafe extern "C" fn(VkDevice, VkDescriptorPool, VkDescriptorPoolResetFlags) -> VkResult>,
     pub allocate_descriptor_sets: PFN_vkAllocateDescriptorSets,
+    pub free_descriptor_sets: Option<unsafe extern "C" fn(VkDevice, VkDescriptorPool, u32, *const VkDescriptorSet) -> VkResult>,
     pub update_descriptor_sets: PFN_vkUpdateDescriptorSets,
     
     // Pipeline functions
@@ -82,12 +84,15 @@ pub struct LoadedICD {
     pub create_command_pool: PFN_vkCreateCommandPool,
     pub destroy_command_pool: PFN_vkDestroyCommandPool,
     pub allocate_command_buffers: PFN_vkAllocateCommandBuffers,
+    pub free_command_buffers: Option<unsafe extern "C" fn(VkDevice, VkCommandPool, u32, *const VkCommandBuffer)>,
     pub begin_command_buffer: PFN_vkBeginCommandBuffer,
     pub end_command_buffer: PFN_vkEndCommandBuffer,
     pub cmd_bind_pipeline: PFN_vkCmdBindPipeline,
     pub cmd_bind_descriptor_sets: PFN_vkCmdBindDescriptorSets,
     pub cmd_dispatch: PFN_vkCmdDispatch,
+    pub cmd_dispatch_indirect: Option<unsafe extern "C" fn(VkCommandBuffer, VkBuffer, VkDeviceSize)>,
     pub cmd_pipeline_barrier: PFN_vkCmdPipelineBarrier,
+    pub cmd_copy_buffer: Option<unsafe extern "C" fn(VkCommandBuffer, VkBuffer, VkBuffer, u32, *const VkBufferCopy)>,
     
     // Sync functions
     pub create_fence: PFN_vkCreateFence,
@@ -241,7 +246,9 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, String> {
             destroy_descriptor_set_layout: None,
             create_descriptor_pool: None,
             destroy_descriptor_pool: None,
+            reset_descriptor_pool: None,
             allocate_descriptor_sets: None,
+            free_descriptor_sets: None,
             update_descriptor_sets: None,
             create_pipeline_layout: None,
             destroy_pipeline_layout: None,
@@ -252,12 +259,15 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, String> {
             create_command_pool: None,
             destroy_command_pool: None,
             allocate_command_buffers: None,
+            free_command_buffers: None,
             begin_command_buffer: None,
             end_command_buffer: None,
             cmd_bind_pipeline: None,
             cmd_bind_descriptor_sets: None,
             cmd_dispatch: None,
+            cmd_dispatch_indirect: None,
             cmd_pipeline_barrier: None,
+            cmd_copy_buffer: None,
             create_fence: None,
             destroy_fence: None,
             reset_fences: None,
@@ -372,7 +382,9 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) {
     load_fn!(destroy_descriptor_set_layout, "vkDestroyDescriptorSetLayout");
     load_fn!(create_descriptor_pool, "vkCreateDescriptorPool");
     load_fn!(destroy_descriptor_pool, "vkDestroyDescriptorPool");
+    load_fn!(reset_descriptor_pool, "vkResetDescriptorPool");
     load_fn!(allocate_descriptor_sets, "vkAllocateDescriptorSets");
+    load_fn!(free_descriptor_sets, "vkFreeDescriptorSets");
     load_fn!(update_descriptor_sets, "vkUpdateDescriptorSets");
     
     load_fn!(create_pipeline_layout, "vkCreatePipelineLayout");
@@ -386,13 +398,16 @@ pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) {
     load_fn!(create_command_pool, "vkCreateCommandPool");
     load_fn!(destroy_command_pool, "vkDestroyCommandPool");
     load_fn!(allocate_command_buffers, "vkAllocateCommandBuffers");
+    load_fn!(free_command_buffers, "vkFreeCommandBuffers");
     load_fn!(begin_command_buffer, "vkBeginCommandBuffer");
     load_fn!(end_command_buffer, "vkEndCommandBuffer");
     
     load_fn!(cmd_bind_pipeline, "vkCmdBindPipeline");
     load_fn!(cmd_bind_descriptor_sets, "vkCmdBindDescriptorSets");
     load_fn!(cmd_dispatch, "vkCmdDispatch");
+    load_fn!(cmd_dispatch_indirect, "vkCmdDispatchIndirect");
     load_fn!(cmd_pipeline_barrier, "vkCmdPipelineBarrier");
+    load_fn!(cmd_copy_buffer, "vkCmdCopyBuffer");
     
     // Sync functions
     load_fn!(create_fence, "vkCreateFence");

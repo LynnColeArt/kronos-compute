@@ -9,17 +9,13 @@ fn main() {
     unsafe {
         println!("Testing Kronos ICD Loader...\n");
         
-        // Initialize ICD loader
-        println!("1. Initializing ICD loader...");
-        match kronos::implementation::icd_loader::initialize_icd_loader() {
-            Ok(()) => println!("   ✓ ICD loader initialized successfully"),
+        // Initialize Kronos
+        println!("1. Initializing Kronos...");
+        match kronos::initialize_kronos() {
+            Ok(()) => println!("   ✓ Kronos initialized successfully"),
             Err(e) => {
-                println!("   ✗ Failed to initialize ICD loader: {}", e);
-                println!("   Note: This is expected if no Vulkan drivers are installed");
-                println!("   Falling back to mock mode...");
-                
-                // Set to mock mode
-                kronos::set_backend_mode(kronos::BackendMode::Mock);
+                println!("   ✗ Failed to initialize Kronos: {}", e);
+                return;
             }
         }
         
@@ -81,7 +77,7 @@ fn main() {
         }
         
                 // Check backend mode
-        println!("\n4. Backend mode: {:?}", kronos::get_backend_mode());
+        println!("\n4. ICD loader test complete");
         
         // Clean up
         println!("\n5. Cleaning up...");

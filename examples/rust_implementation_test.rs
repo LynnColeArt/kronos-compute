@@ -216,7 +216,7 @@ fn main() {
         };
         
         let mut command_pool = VkCommandPool::NULL;
-        let result = kronos::implementation::compute::vkCreateCommandPool(
+        let result = kronos::vkCreateCommandPool(
             device,
             &pool_info,
             ptr::null(),
@@ -235,7 +235,7 @@ fn main() {
         };
         
         let mut cmd_buffer = VkCommandBuffer::NULL;
-        let result = kronos::implementation::compute::vkAllocateCommandBuffers(
+        let result = kronos::vkAllocateCommandBuffers(
             device,
             &alloc_cmd_info,
             &mut cmd_buffer
@@ -251,7 +251,7 @@ fn main() {
             pInheritanceInfo: ptr::null(),
         };
         
-        let result = kronos::implementation::compute::vkBeginCommandBuffer(
+        let result = kronos::vkBeginCommandBuffer(
             cmd_buffer,
             &begin_info
         );
@@ -271,11 +271,11 @@ fn main() {
             size: VK_WHOLE_SIZE,
         };
         
-        kronos::implementation::compute::vkCmdPipelineBarrier(
+        kronos::vkCmdPipelineBarrier(
             cmd_buffer,
             VkPipelineStageFlags::HOST,
             VkPipelineStageFlags::COMPUTE_SHADER,
-            0,
+            VkDependencyFlags::empty(),
             0, ptr::null(),
             1, &barrier,
             0, ptr::null()
@@ -284,7 +284,7 @@ fn main() {
         println!("✓ Pipeline barrier recorded");
         
         // 16. End command buffer
-        let result = kronos::implementation::compute::vkEndCommandBuffer(cmd_buffer);
+        let result = kronos::vkEndCommandBuffer(cmd_buffer);
         println!("✓ Command buffer recording ended: {:?}", result);
         
         // 17. Submit work

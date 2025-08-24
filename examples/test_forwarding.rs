@@ -1,7 +1,6 @@
 //! Test compute forwarding to real Vulkan driver
 
 use kronos::*;
-use kronos::implementation::*;
 use std::ptr;
 use std::ffi::CString;
 
@@ -11,16 +10,14 @@ fn main() {
         
         // Try to initialize with real ICD
         println!("1. Attempting to use real Vulkan driver...");
-        match kronos::implementation::icd_loader::initialize_icd_loader() {
+        match kronos::initialize_kronos() {
             Ok(()) => {
-                println!("   ✓ ICD loader initialized successfully");
-                println!("   ✓ Will forward compute calls to real driver");
-                set_backend_mode(BackendMode::RealICD);
+                println!("   ✓ Kronos initialized successfully");
+                println!("   ✓ Will forward compute calls to real driver if available");
             }
             Err(e) => {
-                println!("   ℹ No Vulkan drivers found: {}", e);
-                println!("   ℹ Using mock implementation");
-                set_backend_mode(BackendMode::Mock);
+                println!("   ⚠ Failed to initialize Kronos: {}", e);
+                panic!("Cannot continue without initialization");
             }
         }
         
@@ -218,11 +215,8 @@ fn main() {
             println!("   ✗ Failed to create pipeline: {:?}", result);
         }
         
-        // Show current backend mode
-        println!("\n9. Backend mode: {:?}", get_backend_mode());
-        
         // Cleanup
-        println!("\n10. Cleaning up...");
+        println!("\n9. Cleaning up...");
         if !pipeline.is_null() {
             vkDestroyPipeline(device, pipeline, ptr::null());
         }

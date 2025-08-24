@@ -31,7 +31,7 @@ fn test_structure_sizes() {
     assert_eq!(mem::size_of::<VkMemoryTypeCache>(), 16); // 4 * 4 bytes
     
     // Compute structures
-    assert_eq!(mem::size_of::<VkComputePipelineCreateInfo>(), 88);
+    assert_eq!(mem::size_of::<VkComputePipelineCreateInfo>(), 96);
     assert_eq!(mem::size_of::<VkPipelineShaderStageCreateInfo>(), 48);
 }
 

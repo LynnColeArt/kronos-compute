@@ -114,6 +114,14 @@ bitflags! {
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct VkDescriptorPoolResetFlags: VkFlags {
+        // Reserved for future use
+        const RESERVED = 0;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct VkFenceCreateFlags: VkFlags {
         const SIGNALED = 0x00000001;
     }

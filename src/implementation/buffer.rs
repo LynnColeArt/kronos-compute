@@ -1,11 +1,8 @@
 //! Buffer creation and management
 
-use std::sync::Arc;
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
-use super::Buffer;
-use super::device::DEVICES;
 
 /// Create a buffer
 #[no_mangle]
@@ -19,51 +16,15 @@ pub unsafe extern "C" fn vkCreateBuffer(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD if enabled
+    // Forward to real ICD
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(create_buffer) = icd.create_buffer {
             return create_buffer(device, pCreateInfo, pAllocator, pBuffer);
         }
     }
     
-    let create_info = &*pCreateInfo;
-    
-    // Validate structure
-    if create_info.sType != VkStructureType::BufferCreateInfo {
-        return VkResult::ErrorInitializationFailed;
-    }
-    
-    // Validate size
-    if create_info.size == 0 {
-        return VkResult::ErrorInitializationFailed;
-    }
-    
-    // Get device
-    let devices = DEVICES.lock().unwrap();
-    let device_arc = match devices.get(&device.as_raw()) {
-        Some(d) => d.clone(),
-        None => return VkResult::ErrorDeviceLost,
-    };
-    drop(devices);
-    
-    let mut device_locked = device_arc.lock().unwrap();
-    
-    // Generate buffer handle
-    let handle = VkBuffer::from_raw(device_locked.handle.as_raw() << 32 | device_locked.buffers.len() as u64);
-    
-    // Create buffer
-    let buffer = Buffer {
-        handle,
-        size: create_info.size,
-        usage: create_info.usage,
-        memory: None,
-        offset: 0,
-    };
-    
-    device_locked.buffers.insert(handle.as_raw(), buffer);
-    
-    *pBuffer = handle;
-    VkResult::Success
+    // No ICD available
+    VkResult::ErrorInitializationFailed
 }
 
 /// Destroy a buffer
@@ -77,10 +38,11 @@ pub unsafe extern "C" fn vkDestroyBuffer(
         return;
     }
     
-    let devices = DEVICES.lock().unwrap();
-    if let Some(device_arc) = devices.get(&device.as_raw()) {
-        let mut device_locked = device_arc.lock().unwrap();
-        device_locked.buffers.remove(&buffer.as_raw());
+    // Forward to real ICD
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(destroy_buffer) = icd.destroy_buffer {
+            destroy_buffer(device, buffer, pAllocator);
+        }
     }
 }
 
@@ -95,26 +57,10 @@ pub unsafe extern "C" fn vkGetBufferMemoryRequirements(
         return;
     }
     
-    let devices = DEVICES.lock().unwrap();
-    if let Some(device_arc) = devices.get(&device.as_raw()) {
-        let device_locked = device_arc.lock().unwrap();
-        
-        if let Some(buffer_obj) = device_locked.buffers.get(&buffer.as_raw()) {
-            // Calculate requirements based on usage
-            let alignment = if buffer_obj.usage.contains(VkBufferUsageFlags::UNIFORM_BUFFER) {
-                256 // Uniform buffers need 256-byte alignment
-            } else {
-                64 // Default alignment for storage buffers
-            };
-            
-            // Align size up
-            let aligned_size = (buffer_obj.size + alignment - 1) & !(alignment - 1);
-            
-            *pMemoryRequirements = VkMemoryRequirements {
-                size: aligned_size,
-                alignment,
-                memoryTypeBits: 0x7, // Support first 3 memory types
-            };
+    // Forward to real ICD
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(get_buffer_memory_requirements) = icd.get_buffer_memory_requirements {
+            get_buffer_memory_requirements(device, buffer, pMemoryRequirements);
         }
     }
 }
@@ -131,31 +77,13 @@ pub unsafe extern "C" fn vkBindBufferMemory(
         return VkResult::ErrorInitializationFailed;
     }
     
-    let devices = DEVICES.lock().unwrap();
-    let device_arc = match devices.get(&device.as_raw()) {
-        Some(d) => d.clone(),
-        None => return VkResult::ErrorDeviceLost,
-    };
-    drop(devices);
-    
-    let mut device_locked = device_arc.lock().unwrap();
-    
-    // Verify memory allocation exists
-    if !device_locked.memory_allocations.contains_key(&memory.as_raw()) {
-        return VkResult::ErrorInitializationFailed;
-    }
-    
-    // Bind buffer to memory
-    if let Some(buffer_obj) = device_locked.buffers.get_mut(&buffer.as_raw()) {
-        if buffer_obj.memory.is_some() {
-            return VkResult::ErrorUnknown; // Already bound
+    // Forward to real ICD
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(bind_buffer_memory) = icd.bind_buffer_memory {
+            return bind_buffer_memory(device, buffer, memory, memoryOffset);
         }
-        
-        buffer_obj.memory = Some(memory);
-        buffer_obj.offset = memoryOffset;
-        
-        VkResult::Success
-    } else {
-        VkResult::ErrorInitializationFailed
     }
+    
+    // No ICD available
+    VkResult::ErrorInitializationFailed
 }

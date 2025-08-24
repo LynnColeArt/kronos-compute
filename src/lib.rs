@@ -19,7 +19,10 @@ pub use sys::*;
 pub use ffi::*;
 
 #[cfg(feature = "implementation")]
-pub use implementation::{BackendMode, set_backend_mode, get_backend_mode, initialize_kronos};
+pub use implementation::{initialize_kronos};
+
+#[cfg(feature = "implementation")]
+pub use implementation::*;
 
 // For libc types
 extern crate libc;
