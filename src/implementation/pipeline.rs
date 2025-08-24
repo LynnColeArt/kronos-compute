@@ -5,6 +5,13 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Create shader module
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkShaderModuleCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pShaderModule points to valid memory for writing the shader module handle
+// 5. The SPIR-V code in pCreateInfo is valid and contains only compute shader stages
+// 6. Code size matches the actual SPIR-V bytecode length
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateShaderModule(
     device: VkDevice,
@@ -28,6 +35,12 @@ pub unsafe extern "C" fn vkCreateShaderModule(
 }
 
 /// Destroy shader module
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. shaderModule is a valid VkShaderModule, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateShaderModule
+// 4. No pipelines are currently using this shader module
+// 5. The shader module is not referenced by any pending operations
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyShaderModule(
     device: VkDevice,
@@ -47,6 +60,14 @@ pub unsafe extern "C" fn vkDestroyShaderModule(
 }
 
 /// Create compute pipelines
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pipelineCache is either VK_NULL_HANDLE or a valid VkPipelineCache
+// 3. createInfoCount > 0 and matches the array sizes
+// 4. pCreateInfos points to an array of createInfoCount valid pipeline create info structures
+// 5. pAllocator is either null or points to valid allocation callbacks
+// 6. pPipelines points to an array with space for createInfoCount pipeline handles
+// 7. All shader modules, layouts, and descriptor set layouts referenced are valid
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateComputePipelines(
     device: VkDevice,
@@ -72,6 +93,12 @@ pub unsafe extern "C" fn vkCreateComputePipelines(
 }
 
 /// Destroy pipeline
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pipeline is a valid VkPipeline, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateComputePipelines
+// 4. The pipeline is not currently bound to any command buffers
+// 5. No command buffers using this pipeline are executing on the GPU
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyPipeline(
     device: VkDevice,
@@ -91,6 +118,13 @@ pub unsafe extern "C" fn vkDestroyPipeline(
 }
 
 /// Create pipeline layout
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkPipelineLayoutCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pPipelineLayout points to valid memory for writing the layout handle
+// 5. All descriptor set layouts referenced in pCreateInfo are valid
+// 6. Push constant ranges do not overlap and are within device limits
 #[no_mangle]
 pub unsafe extern "C" fn vkCreatePipelineLayout(
     device: VkDevice,
@@ -114,6 +148,12 @@ pub unsafe extern "C" fn vkCreatePipelineLayout(
 }
 
 /// Destroy pipeline layout
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pipelineLayout is a valid VkPipelineLayout, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreatePipelineLayout
+// 4. No pipelines are currently using this layout
+// 5. No command buffers reference this layout in their current recordings
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyPipelineLayout(
     device: VkDevice,
@@ -133,6 +173,13 @@ pub unsafe extern "C" fn vkDestroyPipelineLayout(
 }
 
 /// Create command pool
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkCommandPoolCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pCommandPool points to valid memory for writing the pool handle
+// 5. The queue family index in pCreateInfo is valid for this device
+// 6. Pool creation flags are appropriate for intended usage
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateCommandPool(
     device: VkDevice,
@@ -156,6 +203,12 @@ pub unsafe extern "C" fn vkCreateCommandPool(
 }
 
 /// Destroy command pool
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. commandPool is a valid VkCommandPool, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateCommandPool
+// 4. All command buffers allocated from this pool have finished execution
+// 5. No command buffers from this pool are currently being recorded
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyCommandPool(
     device: VkDevice,
@@ -175,6 +228,12 @@ pub unsafe extern "C" fn vkDestroyCommandPool(
 }
 
 /// Allocate command buffers
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pAllocateInfo points to a valid VkCommandBufferAllocateInfo structure
+// 3. pCommandBuffers points to an array with space for commandBufferCount handles
+// 4. The command pool in pAllocateInfo is valid and supports the requested level
+// 5. The command pool has sufficient space for the requested buffers
 #[no_mangle]
 pub unsafe extern "C" fn vkAllocateCommandBuffers(
     device: VkDevice,
@@ -197,6 +256,14 @@ pub unsafe extern "C" fn vkAllocateCommandBuffers(
 }
 
 /// Free command buffers
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. commandPool is a valid VkCommandPool
+// 3. commandBufferCount > 0 and matches the array size
+// 4. pCommandBuffers points to an array of commandBufferCount valid command buffers
+// 5. All command buffers were allocated from the specified pool
+// 6. None of the command buffers are currently executing on the GPU
+// 7. Command buffers are not in the recording state
 #[no_mangle]
 pub unsafe extern "C" fn vkFreeCommandBuffers(
     device: VkDevice,
@@ -217,6 +284,12 @@ pub unsafe extern "C" fn vkFreeCommandBuffers(
 }
 
 /// Begin command buffer recording
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the initial state
+// 2. pBeginInfo points to a valid VkCommandBufferBeginInfo structure
+// 3. The command buffer is not currently being recorded
+// 4. The command buffer is not currently executing on the GPU
+// 5. Usage flags in pBeginInfo match the intended recording pattern
 #[no_mangle]
 pub unsafe extern "C" fn vkBeginCommandBuffer(
     commandBuffer: VkCommandBuffer,
@@ -238,6 +311,11 @@ pub unsafe extern "C" fn vkBeginCommandBuffer(
 }
 
 /// End command buffer recording
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. All commands recorded since vkBeginCommandBuffer are valid
+// 3. The command buffer was successfully put into recording state
+// 4. All nested command buffer recordings have been properly ended
 #[no_mangle]
 pub unsafe extern "C" fn vkEndCommandBuffer(
     commandBuffer: VkCommandBuffer,
@@ -258,6 +336,12 @@ pub unsafe extern "C" fn vkEndCommandBuffer(
 }
 
 /// Bind pipeline
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. pipelineBindPoint is VK_PIPELINE_BIND_POINT_COMPUTE for compute pipelines
+// 3. pipeline is a valid VkPipeline compatible with the bind point
+// 4. The pipeline's layout is compatible with subsequently bound descriptor sets
+// 5. The command buffer supports the queue family that created the pipeline
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdBindPipeline(
     commandBuffer: VkCommandBuffer,
@@ -277,6 +361,14 @@ pub unsafe extern "C" fn vkCmdBindPipeline(
 }
 
 /// Bind descriptor sets
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. pipelineBindPoint is VK_PIPELINE_BIND_POINT_COMPUTE
+// 3. layout is a valid VkPipelineLayout
+// 4. descriptorSetCount > 0 and pDescriptorSets points to that many valid descriptor sets
+// 5. All descriptor sets are compatible with the pipeline layout
+// 6. Dynamic offsets array matches the dynamic descriptors in the sets
+// 7. firstSet + descriptorSetCount <= max sets supported by layout
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdBindDescriptorSets(
     commandBuffer: VkCommandBuffer,
@@ -302,6 +394,12 @@ pub unsafe extern "C" fn vkCmdBindDescriptorSets(
 }
 
 /// Dispatch compute work
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. A compute pipeline is currently bound to the command buffer
+// 3. groupCountX, Y, Z are within device limits and > 0
+// 4. All descriptor sets required by the pipeline are bound
+// 5. All resources referenced by descriptors are valid and accessible
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdDispatch(
     commandBuffer: VkCommandBuffer,
@@ -322,6 +420,13 @@ pub unsafe extern "C" fn vkCmdDispatch(
 }
 
 /// Dispatch compute work with indirect buffer
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. A compute pipeline is currently bound to the command buffer
+// 3. buffer is a valid VkBuffer containing dispatch parameters
+// 4. offset is within the buffer bounds and properly aligned
+// 5. The buffer contains valid VkDispatchIndirectCommand structure at offset
+// 6. All descriptor sets required by the pipeline are bound
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdDispatchIndirect(
     commandBuffer: VkCommandBuffer,
@@ -341,6 +446,14 @@ pub unsafe extern "C" fn vkCmdDispatchIndirect(
 }
 
 /// Pipeline barrier
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. srcStageMask and dstStageMask specify valid pipeline stages
+// 3. dependencyFlags is a valid combination of dependency flags
+// 4. Memory barrier arrays match their respective counts
+// 5. All buffer memory barriers reference valid buffers and ranges
+// 6. Pipeline stages are appropriate for compute operations
+// 7. Memory barriers provide necessary synchronization guarantees
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdPipelineBarrier(
     commandBuffer: VkCommandBuffer,
@@ -369,6 +482,13 @@ pub unsafe extern "C" fn vkCmdPipelineBarrier(
 }
 
 /// Copy buffer
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. srcBuffer and dstBuffer are valid VkBuffer objects
+// 3. regionCount > 0 and pRegions points to that many VkBufferCopy structures
+// 4. All copy regions are within the bounds of their respective buffers
+// 5. Source and destination ranges do not overlap (unless same buffer with identical ranges)
+// 6. Buffers support the required usage flags for transfer operations
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdCopyBuffer(
     commandBuffer: VkCommandBuffer,
@@ -391,6 +511,12 @@ pub unsafe extern "C" fn vkCmdCopyBuffer(
 }
 
 /// Set event
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. event is a valid VkEvent object
+// 3. stageMask specifies valid pipeline stages for compute operations
+// 4. The event will be signaled when the specified pipeline stages complete
+// 5. Subsequent vkCmdWaitEvents calls can safely wait on this event
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdSetEvent(
     commandBuffer: VkCommandBuffer,
@@ -410,6 +536,12 @@ pub unsafe extern "C" fn vkCmdSetEvent(
 }
 
 /// Reset event
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. event is a valid VkEvent object
+// 3. stageMask specifies valid pipeline stages for compute operations
+// 4. The event will be reset when the specified pipeline stages complete
+// 5. No other command buffers should be waiting on this event when it's reset
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdResetEvent(
     commandBuffer: VkCommandBuffer,
@@ -429,6 +561,14 @@ pub unsafe extern "C" fn vkCmdResetEvent(
 }
 
 /// Wait for events
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. commandBuffer is a valid VkCommandBuffer in the recording state
+// 2. eventCount > 0 and pEvents points to that many valid VkEvent objects
+// 3. srcStageMask and dstStageMask specify valid pipeline stages
+// 4. All events in pEvents have been signaled by previous commands
+// 5. Memory barrier arrays match their respective counts and are valid
+// 6. All buffer memory barriers reference valid buffers and ranges
+// 7. Pipeline stages and barriers provide necessary synchronization
 #[no_mangle]
 pub unsafe extern "C" fn vkCmdWaitEvents(
     commandBuffer: VkCommandBuffer,

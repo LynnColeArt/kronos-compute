@@ -5,6 +5,13 @@ use crate::core::*;
 use crate::ffi::*;
 
 /// Create descriptor set layout
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkDescriptorSetLayoutCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pSetLayout points to valid memory for writing the layout handle
+// 5. All binding descriptions in pCreateInfo are valid
+// 6. Descriptor types and shader stages are appropriate for compute
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateDescriptorSetLayout(
     device: VkDevice,
@@ -28,6 +35,12 @@ pub unsafe extern "C" fn vkCreateDescriptorSetLayout(
 }
 
 /// Destroy descriptor set layout
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. descriptorSetLayout is a valid VkDescriptorSetLayout, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateDescriptorSetLayout
+// 4. No descriptor sets using this layout are currently allocated
+// 5. No pipelines reference this layout
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyDescriptorSetLayout(
     device: VkDevice,
@@ -47,6 +60,13 @@ pub unsafe extern "C" fn vkDestroyDescriptorSetLayout(
 }
 
 /// Create descriptor pool
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pCreateInfo points to a valid VkDescriptorPoolCreateInfo structure
+// 3. pAllocator is either null or points to valid allocation callbacks
+// 4. pDescriptorPool points to valid memory for writing the pool handle
+// 5. Pool sizes and max sets are reasonable values
+// 6. Descriptor types match what will be allocated from this pool
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateDescriptorPool(
     device: VkDevice,
@@ -70,6 +90,12 @@ pub unsafe extern "C" fn vkCreateDescriptorPool(
 }
 
 /// Destroy descriptor pool
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. descriptorPool is a valid VkDescriptorPool, or VK_NULL_HANDLE
+// 3. pAllocator matches the allocator used in vkCreateDescriptorPool
+// 4. All descriptor sets allocated from this pool have been freed or will be freed
+// 5. No command buffers are using descriptor sets from this pool
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyDescriptorPool(
     device: VkDevice,
@@ -89,6 +115,12 @@ pub unsafe extern "C" fn vkDestroyDescriptorPool(
 }
 
 /// Reset descriptor pool
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. descriptorPool is a valid VkDescriptorPool
+// 3. flags is a valid VkDescriptorPoolResetFlags value
+// 4. All descriptor sets allocated from this pool become invalid after reset
+// 5. No command buffers are currently using descriptor sets from this pool
 #[no_mangle]
 pub unsafe extern "C" fn vkResetDescriptorPool(
     device: VkDevice,
@@ -111,6 +143,13 @@ pub unsafe extern "C" fn vkResetDescriptorPool(
 }
 
 /// Allocate descriptor sets
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. pAllocateInfo points to a valid VkDescriptorSetAllocateInfo structure
+// 3. pDescriptorSets points to an array with space for descriptorSetCount handles
+// 4. The descriptor pool has sufficient space for the requested sets
+// 5. All descriptor set layouts in pAllocateInfo are valid
+// 6. The descriptor pool was not created with FREE_DESCRIPTOR_SET_BIT if individual freeing is needed
 #[no_mangle]
 pub unsafe extern "C" fn vkAllocateDescriptorSets(
     device: VkDevice,
@@ -133,6 +172,14 @@ pub unsafe extern "C" fn vkAllocateDescriptorSets(
 }
 
 /// Free descriptor sets
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. descriptorPool is a valid VkDescriptorPool
+// 3. descriptorSetCount > 0 and matches the array size
+// 4. pDescriptorSets points to an array of descriptorSetCount valid descriptor sets
+// 5. All descriptor sets were allocated from the specified pool
+// 6. The pool was created with VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+// 7. No command buffers are currently using these descriptor sets
 #[no_mangle]
 pub unsafe extern "C" fn vkFreeDescriptorSets(
     device: VkDevice,
@@ -156,6 +203,14 @@ pub unsafe extern "C" fn vkFreeDescriptorSets(
 }
 
 /// Update descriptor sets
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. device is a valid VkDevice
+// 2. If descriptorWriteCount > 0, pDescriptorWrites points to valid write operations
+// 3. If descriptorCopyCount > 0, pDescriptorCopies points to valid copy operations
+// 4. All descriptor sets referenced in writes/copies are valid and not in use
+// 5. Buffer, image, and sampler resources referenced in writes are valid
+// 6. Descriptor types match the layout bindings
+// 7. No command buffers are currently using the descriptor sets being updated
 #[no_mangle]
 pub unsafe extern "C" fn vkUpdateDescriptorSets(
     device: VkDevice,
