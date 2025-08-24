@@ -47,6 +47,10 @@ impl<T> fmt::Debug for Handle<T> {
     }
 }
 
+// Handles are just integers, safe to send between threads
+unsafe impl<T> Send for Handle<T> {}
+unsafe impl<T> Sync for Handle<T> {}
+
 // Define opaque types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InstanceT {}

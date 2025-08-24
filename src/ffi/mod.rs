@@ -28,6 +28,7 @@ pub enum VkResult {
     ErrorTooManyObjects = -10,
     ErrorFormatNotSupported = -11,
     ErrorFragmentedPool = -12,
+    ErrorUnknown = -13,
     ErrorOutOfPoolMemory = -1000069000,
 }
 

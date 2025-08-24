@@ -223,8 +223,15 @@ fn main() {
         
         // Cleanup
         println!("\n10. Cleaning up...");
-        // Note: Destroy functions not yet implemented for pipelines/shaders
-        // They would be called here in a complete implementation
+        if !pipeline.is_null() {
+            vkDestroyPipeline(device, pipeline, ptr::null());
+        }
+        if !pipeline_layout.is_null() {
+            vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
+        }
+        if !shader_module.is_null() {
+            vkDestroyShaderModule(device, shader_module, ptr::null());
+        }
         vkDestroyDevice(device, ptr::null());
         vkDestroyInstance(instance, ptr::null());
         println!("   ✓ Cleaned up successfully");
