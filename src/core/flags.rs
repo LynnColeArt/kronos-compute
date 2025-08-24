@@ -30,8 +30,6 @@ bitflags! {
         const TRANSFER_DST = 0x00000002;
         const UNIFORM_BUFFER = 0x00000010;
         const STORAGE_BUFFER = 0x00000020;
-        const INDEX_BUFFER = 0x00000040;
-        const VERTEX_BUFFER = 0x00000080;
         const INDIRECT_BUFFER = 0x00000100;
     }
 }
@@ -77,7 +75,6 @@ bitflags! {
         const COMPUTE_SHADER = 0x00000800;
         const BOTTOM_OF_PIPE = 0x00002000;
         const HOST = 0x00004000;
-        const ALL_GRAPHICS = 0x00008000;
         const ALL_COMMANDS = 0x00010000;
     }
 }
@@ -86,10 +83,7 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct VkAccessFlags: VkFlags {
         const INDIRECT_COMMAND_READ = 0x00000001;
-        const INDEX_READ = 0x00000002;
-        const VERTEX_ATTRIBUTE_READ = 0x00000004;
         const UNIFORM_READ = 0x00000008;
-        const INPUT_ATTACHMENT_READ = 0x00000010;
         const SHADER_READ = 0x00000020;
         const SHADER_WRITE = 0x00000040;
         const TRANSFER_READ = 0x00000800;

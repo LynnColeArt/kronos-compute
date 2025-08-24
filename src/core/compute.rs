@@ -314,7 +314,6 @@ pub enum VkImageLayout {
     General = 1,
     TransferSrcOptimal = 6,
     TransferDstOptimal = 7,
-    SharedPresentKHR = 1000111000,
 }
 
 // Add missing flags
