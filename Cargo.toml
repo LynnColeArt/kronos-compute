@@ -11,6 +11,7 @@ documentation = "https://docs.rs/kronos-compute"
 readme = "README.md"
 keywords = ["vulkan", "compute", "gpu", "gpgpu", "hpc"]
 categories = ["graphics", "api-bindings", "concurrency", "hardware-support"]
+exclude = ["src/bin/*", "target/*", ".git/*", "*.backup"]
 
 [dependencies]
 # Core dependencies
