@@ -1,13 +1,16 @@
 [package]
-name = "kronos"
+name = "kronos-compute"
 version = "0.1.0"
 edition = "2021"
-authors = ["Kronos Contributors"]
-description = "A compute-only Vulkan implementation in Rust"
+authors = ["Lynn Cole <lynn@lynncole.art>"]
+description = "A high-performance compute-only Vulkan implementation with cutting-edge GPU optimizations"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourusername/kronos"
-keywords = ["vulkan", "compute", "gpu", "graphics"]
-categories = ["graphics", "api-bindings"]
+repository = "https://github.com/LynnColeArt/kronos-compute"
+homepage = "https://github.com/LynnColeArt/kronos-compute"
+documentation = "https://docs.rs/kronos-compute"
+readme = "README.md"
+keywords = ["vulkan", "compute", "gpu", "gpgpu", "hpc"]
+categories = ["graphics", "api-bindings", "concurrency", "hardware-support"]
 
 [dependencies]
 # Core dependencies
@@ -34,7 +37,7 @@ compare-ash = ["ash"]  # Enable comparison benchmarks with ash
 implementation = ["lazy_static"]  # Enable the Rust implementation
 
 [lib]
-name = "kronos"
+name = "kronos_compute"
 crate-type = ["cdylib", "rlib"]
 
 [[example]]

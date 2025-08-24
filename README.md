@@ -1,10 +1,10 @@
-# Kronos Rust Port 🚀
+# Kronos Compute 🚀
 
 A high-performance, compute-only Vulkan implementation in Rust, featuring state-of-the-art GPU compute optimizations.
 
 ## Overview
 
-Kronos is a streamlined Vulkan implementation that removes all graphics functionality to achieve maximum GPU compute performance. This Rust port not only provides memory-safe abstractions over the C API but also implements cutting-edge optimizations that deliver:
+Kronos Compute is a streamlined Vulkan implementation that removes all graphics functionality to achieve maximum GPU compute performance. This Rust port not only provides memory-safe abstractions over the C API but also implements cutting-edge optimizations that deliver:
 
 - **Zero descriptor updates** per dispatch
 - **≤0.5 barriers** per dispatch (83% reduction)
@@ -80,18 +80,25 @@ kronos/
     └── TODO.md             # Development roadmap
 ```
 
-## 🛠️ Building
+## 🛠️ Installation
 
-### Prerequisites
+### From crates.io (Coming Soon)
+```bash
+cargo add kronos-compute
+```
+
+### From Source
+
+#### Prerequisites
 - Rust 1.70 or later
 - Vulkan SDK (for ICD loader)
 - A Vulkan-capable GPU
 
-### Build Steps
+#### Build Steps
 ```bash
 # Clone the repository
-git clone https://github.com/LynnColeArt/kronos
-cd kronos
+git clone https://github.com/LynnColeArt/kronos-compute
+cd kronos-compute
 
 # Build with optimizations enabled
 cargo build --release --features implementation
@@ -132,7 +139,7 @@ cargo bench --bench compute_workloads -- --warm-up-time 5 --measurement-time 10
 ## 🚀 Usage Example
 
 ```rust
-use kronos::*;
+use kronos_compute::*;
 
 unsafe {
     // Initialize Kronos with ICD forwarding
@@ -315,12 +322,12 @@ Built with ❤️ and 🦀 for maximum GPU compute performance.
 If you use Kronos in your research, please cite:
 
 ```bibtex
-@software{kronos2025,
+@software{kronoscompute2025,
   author = {Cole, Lynn},
-  title = {Kronos: A High-Performance Compute-Only Vulkan Implementation},
+  title = {Kronos Compute: A High-Performance Compute-Only Vulkan Implementation},
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},
-  url = {https://github.com/LynnColeArt/kronos}
+  url = {https://github.com/LynnColeArt/kronos-compute}
 }
 ```
