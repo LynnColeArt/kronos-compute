@@ -1,7 +1,5 @@
 //! Enumerations for Kronos API
 
-use crate::sys::*;
-
 /// Structure type identifiers
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

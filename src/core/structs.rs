@@ -489,3 +489,102 @@ impl Default for VkSubmitInfo {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_extent3d_default() {
+        let extent = VkExtent3D::default();
+        assert_eq!(extent.width, 1);
+        assert_eq!(extent.height, 1);
+        assert_eq!(extent.depth, 1);
+    }
+    
+    #[test]
+    fn test_application_info_default() {
+        let info = VkApplicationInfo::default();
+        assert_eq!(info.sType, VkStructureType::ApplicationInfo);
+        assert!(info.pNext.is_null());
+        assert!(info.pApplicationName.is_null());
+        assert_eq!(info.applicationVersion, 0);
+        assert_eq!(info.apiVersion, VK_API_VERSION_1_0);
+    }
+    
+    #[test]
+    fn test_instance_create_info_default() {
+        let info = VkInstanceCreateInfo::default();
+        assert_eq!(info.sType, VkStructureType::InstanceCreateInfo);
+        assert!(info.pNext.is_null());
+        assert_eq!(info.flags, 0);
+        assert_eq!(info.enabledLayerCount, 0);
+        assert_eq!(info.enabledExtensionCount, 0);
+    }
+    
+    #[test]
+    fn test_buffer_create_info_default() {
+        let info = VkBufferCreateInfo::default();
+        assert_eq!(info.sType, VkStructureType::BufferCreateInfo);
+        assert!(info.pNext.is_null());
+        assert_eq!(info.size, 0);
+        assert!(info.usage.is_empty());
+        assert_eq!(info.sharingMode, VkSharingMode::Exclusive);
+        assert!(info.flags.is_empty());
+    }
+    
+    #[test]
+    fn test_memory_allocate_info_default() {
+        let info = VkMemoryAllocateInfo::default();
+        assert_eq!(info.sType, VkStructureType::MemoryAllocateInfo);
+        assert!(info.pNext.is_null());
+        assert_eq!(info.allocationSize, 0);
+        assert_eq!(info.memoryTypeIndex, 0);
+    }
+    
+    #[test]
+    fn test_fence_create_info_default() {
+        let info = VkFenceCreateInfo::default();
+        assert_eq!(info.sType, VkStructureType::FenceCreateInfo);
+        assert!(info.pNext.is_null());
+        assert!(info.flags.is_empty());
+    }
+    
+    #[test]
+    fn test_submit_info_default() {
+        let info = VkSubmitInfo::default();
+        assert_eq!(info.sType, VkStructureType::SubmitInfo);
+        assert!(info.pNext.is_null());
+        assert_eq!(info.waitSemaphoreCount, 0);
+        assert_eq!(info.commandBufferCount, 0);
+        assert_eq!(info.signalSemaphoreCount, 0);
+    }
+    
+    #[test]
+    fn test_command_buffer_begin_info_default() {
+        let info = VkCommandBufferBeginInfo::default();
+        assert_eq!(info.sType, VkStructureType::CommandBufferBeginInfo);
+        assert!(info.pNext.is_null());
+        assert!(info.flags.is_empty());
+        assert!(info.pInheritanceInfo.is_null());
+    }
+    
+    #[test]
+    fn test_memory_barrier_default() {
+        let barrier = VkMemoryBarrier::default();
+        assert_eq!(barrier.sType, VkStructureType::MemoryBarrier);
+        assert!(barrier.pNext.is_null());
+        assert!(barrier.srcAccessMask.is_empty());
+        assert!(barrier.dstAccessMask.is_empty());
+    }
+    
+    #[test]
+    fn test_buffer_memory_barrier_default() {
+        let barrier = VkBufferMemoryBarrier::default();
+        assert_eq!(barrier.sType, VkStructureType::BufferMemoryBarrier);
+        assert!(barrier.pNext.is_null());
+        assert_eq!(barrier.srcQueueFamilyIndex, VK_QUEUE_FAMILY_IGNORED);
+        assert_eq!(barrier.dstQueueFamilyIndex, VK_QUEUE_FAMILY_IGNORED);
+        assert_eq!(barrier.size, VK_WHOLE_SIZE);
+    }
+}

@@ -1,86 +1,95 @@
-//! Low-level system types and constants
+//! System types and handles for Kronos
 //! 
-//! This module contains the raw FFI-compatible types that match the C API
+//! Type-safe handle system with zero overhead
 
-use std::ffi::{c_char, c_void};
+use std::marker::PhantomData;
 use std::fmt;
 
-/// Vulkan-compatible handle type
-pub type VkHandle = u64;
-
-/// Opaque handle types
+/// Opaque handle type with phantom data for type safety
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Handle<T> {
-    raw: VkHandle,
-    _marker: std::marker::PhantomData<T>,
+    pub(crate) raw: u64,
+    pub(crate) _marker: PhantomData<*const T>,
 }
 
 impl<T> Handle<T> {
     pub const NULL: Self = Self {
         raw: 0,
-        _marker: std::marker::PhantomData,
+        _marker: PhantomData,
     };
     
     #[inline]
-    pub fn from_raw(raw: VkHandle) -> Self {
+    pub const fn from_raw(raw: u64) -> Self {
         Self {
             raw,
-            _marker: std::marker::PhantomData,
+            _marker: PhantomData,
         }
     }
     
     #[inline]
-    pub fn as_raw(&self) -> VkHandle {
+    pub const fn as_raw(&self) -> u64 {
         self.raw
     }
     
     #[inline]
-    pub fn is_null(&self) -> bool {
+    pub const fn is_null(&self) -> bool {
         self.raw == 0
     }
 }
 
-// Define handle types - these are phantom types for type safety
-#[derive(Debug, Clone, Copy)]
-pub enum InstanceT {}
-#[derive(Debug, Clone, Copy)]
-pub enum PhysicalDeviceT {}
-#[derive(Debug, Clone, Copy)]
-pub enum DeviceT {}
-#[derive(Debug, Clone, Copy)]
-pub enum QueueT {}
-#[derive(Debug, Clone, Copy)]
-pub enum CommandBufferT {}
-#[derive(Debug, Clone, Copy)]
-pub enum BufferT {}
-#[derive(Debug, Clone, Copy)]
-pub enum DeviceMemoryT {}
-#[derive(Debug, Clone, Copy)]
-pub enum CommandPoolT {}
-#[derive(Debug, Clone, Copy)]
-pub enum PipelineT {}
-#[derive(Debug, Clone, Copy)]
-pub enum PipelineLayoutT {}
-#[derive(Debug, Clone, Copy)]
-pub enum DescriptorSetLayoutT {}
-#[derive(Debug, Clone, Copy)]
-pub enum DescriptorSetT {}
-#[derive(Debug, Clone, Copy)]
-pub enum DescriptorPoolT {}
-#[derive(Debug, Clone, Copy)]
-pub enum ShaderModuleT {}
-#[derive(Debug, Clone, Copy)]
-pub enum FenceT {}
-#[derive(Debug, Clone, Copy)]
-pub enum SemaphoreT {}
-#[derive(Debug, Clone, Copy)]
-pub enum EventT {}
-#[derive(Debug, Clone, Copy)]
-pub enum PipelineCacheT {}
-#[derive(Debug, Clone, Copy)]
-pub enum QueryPoolT {}
+impl<T> fmt::Debug for Handle<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Handle")
+            .field("raw", &self.raw)
+            .field("_marker", &self._marker)
+            .finish()
+    }
+}
 
+// Define opaque types
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InstanceT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PhysicalDeviceT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DeviceT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum QueueT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CommandBufferT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BufferT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DeviceMemoryT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PipelineT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PipelineLayoutT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShaderModuleT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DescriptorSetT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DescriptorSetLayoutT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DescriptorPoolT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CommandPoolT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FenceT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SemaphoreT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EventT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PipelineCacheT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SamplerT {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ImageViewT {}
+
+// Type aliases for handles
 pub type VkInstance = Handle<InstanceT>;
 pub type VkPhysicalDevice = Handle<PhysicalDeviceT>;
 pub type VkDevice = Handle<DeviceT>;
@@ -88,98 +97,82 @@ pub type VkQueue = Handle<QueueT>;
 pub type VkCommandBuffer = Handle<CommandBufferT>;
 pub type VkBuffer = Handle<BufferT>;
 pub type VkDeviceMemory = Handle<DeviceMemoryT>;
-pub type VkCommandPool = Handle<CommandPoolT>;
 pub type VkPipeline = Handle<PipelineT>;
 pub type VkPipelineLayout = Handle<PipelineLayoutT>;
-pub type VkDescriptorSetLayout = Handle<DescriptorSetLayoutT>;
-pub type VkDescriptorSet = Handle<DescriptorSetT>;
-pub type VkDescriptorPool = Handle<DescriptorPoolT>;
 pub type VkShaderModule = Handle<ShaderModuleT>;
+pub type VkDescriptorSet = Handle<DescriptorSetT>;
+pub type VkDescriptorSetLayout = Handle<DescriptorSetLayoutT>;
+pub type VkDescriptorPool = Handle<DescriptorPoolT>;
+pub type VkCommandPool = Handle<CommandPoolT>;
 pub type VkFence = Handle<FenceT>;
 pub type VkSemaphore = Handle<SemaphoreT>;
 pub type VkEvent = Handle<EventT>;
 pub type VkPipelineCache = Handle<PipelineCacheT>;
-pub type VkQueryPool = Handle<QueryPoolT>;
+pub type VkSampler = Handle<SamplerT>;
+pub type VkImageView = Handle<ImageViewT>;
 
-/// Basic types
-pub type VkFlags = u32;
+// Basic types
 pub type VkBool32 = u32;
+pub type VkFlags = u32;
 pub type VkDeviceSize = u64;
 
-/// Constants
+// Constants
 pub const VK_TRUE: VkBool32 = 1;
 pub const VK_FALSE: VkBool32 = 0;
 pub const VK_WHOLE_SIZE: VkDeviceSize = !0;
-pub const VK_ATTACHMENT_UNUSED: u32 = !0;
 pub const VK_QUEUE_FAMILY_IGNORED: u32 = !0;
-pub const VK_SUBPASS_EXTERNAL: u32 = !0;
 
-/// API Version
-pub const VK_API_VERSION_1_0: u32 = crate::make_version(1, 0, 0);
+// API version
+pub const VK_API_VERSION_1_0: u32 = (1 << 22) | (0 << 12) | 0;
 
-/// Result codes
-#[repr(i32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum VkResult {
-    Success = 0,
-    NotReady = 1,
-    Timeout = 2,
-    EventSet = 3,
-    EventReset = 4,
-    Incomplete = 5,
-    ErrorOutOfHostMemory = -1,
-    ErrorOutOfDeviceMemory = -2,
-    ErrorInitializationFailed = -3,
-    ErrorDeviceLost = -4,
-    ErrorMemoryMapFailed = -5,
-    ErrorLayerNotPresent = -6,
-    ErrorExtensionNotPresent = -7,
-    ErrorFeatureNotPresent = -8,
-    ErrorIncompatibleDriver = -9,
-    ErrorTooManyObjects = -10,
-    ErrorFormatNotSupported = -11,
-    ErrorFragmentedPool = -12,
-    ErrorUnknown = -13,
-    ErrorOutOfPoolMemory = -1000069000,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl VkResult {
-    #[inline]
-    pub fn is_success(self) -> bool {
-        self as i32 >= 0
+    #[test]
+    fn test_handle_null() {
+        let handle: VkDevice = Handle::NULL;
+        assert!(handle.is_null());
+        assert_eq!(handle.as_raw(), 0);
     }
-    
-    #[inline]
-    pub fn is_error(self) -> bool {
-        (self as i32) < 0
-    }
-}
 
-impl fmt::Display for VkResult {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VkResult::Success => write!(f, "Success"),
-            VkResult::NotReady => write!(f, "Not ready"),
-            VkResult::Timeout => write!(f, "Timeout"),
-            VkResult::EventSet => write!(f, "Event set"),
-            VkResult::EventReset => write!(f, "Event reset"),
-            VkResult::Incomplete => write!(f, "Incomplete"),
-            VkResult::ErrorOutOfHostMemory => write!(f, "Out of host memory"),
-            VkResult::ErrorOutOfDeviceMemory => write!(f, "Out of device memory"),
-            VkResult::ErrorInitializationFailed => write!(f, "Initialization failed"),
-            VkResult::ErrorDeviceLost => write!(f, "Device lost"),
-            VkResult::ErrorMemoryMapFailed => write!(f, "Memory map failed"),
-            VkResult::ErrorLayerNotPresent => write!(f, "Layer not present"),
-            VkResult::ErrorExtensionNotPresent => write!(f, "Extension not present"),
-            VkResult::ErrorFeatureNotPresent => write!(f, "Feature not present"),
-            VkResult::ErrorIncompatibleDriver => write!(f, "Incompatible driver"),
-            VkResult::ErrorTooManyObjects => write!(f, "Too many objects"),
-            VkResult::ErrorFormatNotSupported => write!(f, "Format not supported"),
-            VkResult::ErrorFragmentedPool => write!(f, "Fragmented pool"),
-            VkResult::ErrorUnknown => write!(f, "Unknown error"),
-            VkResult::ErrorOutOfPoolMemory => write!(f, "Out of pool memory"),
-        }
+    #[test]
+    fn test_handle_creation() {
+        let handle: VkBuffer = Handle::from_raw(42);
+        assert!(!handle.is_null());
+        assert_eq!(handle.as_raw(), 42);
+    }
+
+    #[test]
+    fn test_handle_equality() {
+        let h1: VkPipeline = Handle::from_raw(123);
+        let h2: VkPipeline = Handle::from_raw(123);
+        let h3: VkPipeline = Handle::from_raw(456);
+        
+        assert_eq!(h1, h2);
+        assert_ne!(h1, h3);
+    }
+
+    #[test]
+    fn test_handle_copy() {
+        let h1: VkQueue = Handle::from_raw(789);
+        let h2 = h1; // Copy
+        assert_eq!(h1, h2);
+        assert_eq!(h1.as_raw(), h2.as_raw());
+    }
+
+    #[test]
+    fn test_constants() {
+        assert_eq!(VK_TRUE, 1);
+        assert_eq!(VK_FALSE, 0);
+        assert_eq!(VK_WHOLE_SIZE, u64::MAX);
+        assert_eq!(VK_QUEUE_FAMILY_IGNORED, u32::MAX);
+    }
+
+    #[test]
+    fn test_handle_debug() {
+        let handle: VkDevice = Handle::from_raw(999);
+        let debug_str = format!("{:?}", handle);
+        assert!(debug_str.contains("raw: 999"));
     }
 }
-
-impl std::error::Error for VkResult {}

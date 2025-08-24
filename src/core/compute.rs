@@ -294,15 +294,9 @@ pub struct VkCopyDescriptorSet {
     pub descriptorCount: u32,
 }
 
-// Add missing handle types
-pub type VkSampler = Handle<SamplerT>;
-pub type VkImageView = Handle<ImageViewT>;
+// BufferView handle type
 pub type VkBufferView = Handle<BufferViewT>;
 
-#[derive(Debug, Clone, Copy)]
-pub enum SamplerT {}
-#[derive(Debug, Clone, Copy)]
-pub enum ImageViewT {}
 #[derive(Debug, Clone, Copy)]
 pub enum BufferViewT {}
 
