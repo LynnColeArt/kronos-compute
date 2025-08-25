@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **⚠️ Note: This project is unfinished and in active development. While the core functionality is implemented, there are known issues with examples and some features may not work as expected. Use in production at your own risk.**
+> **📦 Release Candidate 1 (v0.1.5-rc1): This project has reached release candidate status! The core functionality is stable, the unified safe API is complete, and all critical issues have been resolved. We welcome beta testing and feedback.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
@@ -106,14 +106,21 @@ cargo add kronos-compute
 
 #### Prerequisites
 - Rust 1.70 or later
-- Vulkan SDK (for ICD loader)
-- A Vulkan-capable GPU
+- Vulkan SDK (for ICD loader and validation layers)
+- A Vulkan-capable GPU with compute support
+- Build tools (gcc/clang on Linux, Visual Studio on Windows, Xcode on macOS)
+- (Optional) SPIR-V compiler (glslc or glslangValidator) for shader development
+
+See [Development Setup Guide](docs/DEVELOPMENT_SETUP.md) for detailed installation instructions.
 
 #### Build Steps
 ```bash
 # Clone the repository
 git clone https://github.com/LynnColeArt/kronos-compute
 cd kronos-compute
+
+# Build SPIR-V shaders (optional, pre-built shaders included)
+./scripts/build_shaders.sh
 
 # Build with optimizations enabled
 cargo build --release --features implementation
@@ -334,8 +341,11 @@ All unsafe functions include comprehensive safety documentation.
 - ✅ C header generation
 - ✅ SPIR-V shader build scripts
 - ✅ Safe unified API (NEW!)
+- ✅ Compute correctness fixed (1024/1024 correct results)
+- ✅ Safety documentation complete (100% coverage)
+- ✅ CI/CD pipeline with multi-platform testing
+- ✅ Test suite expanded (46 tests passing)
 - ⏳ Production testing
-- ⏳ Compute correctness fixes needed
 
 ## 🗺️ Roadmap
 

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5-rc1] - 2025-08-25
+
 ### Added
 - Complete CI/CD pipeline with GitHub Actions
 - Multi-platform testing (Linux, Windows, macOS)
@@ -15,14 +17,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for crates.io
 - Comprehensive safety documentation for all unsafe functions
 - SAFETY_DOCUMENTATION_REPORT.md tracking all unsafe functions
+- Test suite expansion from 31 to 46 tests
+- Unit tests for implementation modules
+- Integration tests for unified API
+- TROUBLESHOOTING.md guide for common issues
+- KNOWN_ISSUES.md tracking current and resolved issues
+- DEVELOPMENT_SETUP.md for contributor onboarding
+- rust-version = "1.70" in Cargo.toml for MSRV
 
 ### Fixed
 - Compute correctness bug in compute_simple example (now 1024/1024 correct)
 - Compilation errors in all binary examples (demo, test_minimal, test_optimizations)
 - Import statements changed from `use kronos::*` to `use kronos_compute::*`
+- Private field access issues in tests (added public methods to BatchBuilder)
 
 ### Changed
 - Updated EPIC2.md to reflect completed milestones
+- README.md updated with accurate test counts and status
+- Added build prerequisites and development setup link to README
 
 ## [0.1.0] - 2024-12-29
 
@@ -48,5 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc1...HEAD
+[0.1.5-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.0...v0.1.5-rc1
 [0.1.0]: https://github.com/LynnColeArt/kronos-compute/releases/tag/v0.1.0
