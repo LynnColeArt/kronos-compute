@@ -1,5 +1,7 @@
 # Kronos Compute 🚀
 
+> **⚠️ Note: This project is unfinished and in active development. While the core functionality is implemented, there are known issues with examples and some features may not work as expected. Use in production at your own risk.**
+
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
 [![License](https://img.shields.io/crates/l/kronos-compute.svg)](https://github.com/LynnColeArt/kronos-compute)
