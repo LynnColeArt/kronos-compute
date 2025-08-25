@@ -160,6 +160,15 @@ impl BarrierBatch {
     }
     
     /// Submit all barriers in the batch
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The command_buffer must be a valid VkCommandBuffer handle in recording state
+    /// - The command buffer must not be in use by another thread
+    /// - All buffer handles in buffer_barriers must be valid
+    /// - The ICD loader must be initialized with valid function pointers
+    /// - Submitting barriers with invalid parameters causes undefined behavior
     pub unsafe fn submit(
         &self,
         command_buffer: VkCommandBuffer,
@@ -280,6 +289,14 @@ impl BarrierTracker {
     }
     
     /// Flush pending barriers
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The command_buffer must be a valid VkCommandBuffer handle in recording state
+    /// - Calls the unsafe submit() method which requires valid command buffer
+    /// - The command buffer must be properly synchronized if used across threads
+    /// - All tracked buffers must still be valid when barriers are flushed
     pub unsafe fn flush_barriers(&mut self, command_buffer: VkCommandBuffer) {
         if !self.pending.buffer_barriers.is_empty() {
             // Determine dominant barrier type for batch

@@ -1,6 +1,6 @@
 //! Simple demo that compiles and runs
 
-use kronos::*;
+use kronos_compute::*;
 
 fn main() {
     println!("Kronos Rust Port Demo");

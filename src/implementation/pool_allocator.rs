@@ -151,6 +151,16 @@ impl MemoryPool {
     }
     
     /// Allocate memory from the pool
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - Calls vkAllocateMemory through ICD function pointer
+    /// - May call vkMapMemory for host-visible memory types
+    /// - The device must be a valid VkDevice handle
+    /// - Returned memory must be freed with vkFreeMemory
+    /// - Mapped pointers are only valid while memory is allocated
+    /// - Size and alignment must be within device limits
     unsafe fn allocate(
         &mut self,
         size: VkDeviceSize,
@@ -236,6 +246,14 @@ impl MemoryPool {
     }
     
     /// Free an allocation
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The memory and offset must correspond to a valid allocation
+    /// - The allocation must not be in use by the GPU
+    /// - After freeing, any mapped pointers become invalid
+    /// - Double-free will corrupt the allocator state
     unsafe fn free(&mut self, memory: VkDeviceMemory, offset: VkDeviceSize) -> bool {
         for slab in &mut self.slabs {
             if slab.memory == memory {
@@ -298,6 +316,15 @@ lazy_static::lazy_static! {
 }
 
 /// Initialize pools for a device
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - Both device and physical_device must be valid Vulkan handles
+/// - Calls vkGetPhysicalDeviceMemoryProperties through ICD
+/// - The device must have been created from the physical device
+/// - Pools must be cleaned up before device destruction
+/// - Thread safety is provided by the global POOL_ALLOCATOR mutex
 pub unsafe fn initialize_pools(
     device: VkDevice,
     physical_device: VkPhysicalDevice,
@@ -330,6 +357,15 @@ pub unsafe fn initialize_pools(
 }
 
 /// Allocate memory from appropriate pool
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - Pools must be initialized for the device first
+/// - The requirements must be valid (from vkGetBufferMemoryRequirements etc.)
+/// - The returned allocation ID must be freed with free_allocation
+/// - Memory allocated is not bound to any resource yet
 pub unsafe fn allocate_from_pool(
     device: VkDevice,
     requirements: &VkMemoryRequirements,
@@ -367,6 +403,15 @@ pub fn get_allocation(id: u64) -> Result<AllocationHandle, IcdError> {
 }
 
 /// Free allocation
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - The allocation ID must be valid and not already freed
+/// - Any resources bound to this memory must be destroyed first
+/// - Any mapped pointers from this allocation become invalid
+/// - GPU must not be using the memory
 pub unsafe fn free_allocation(device: VkDevice, id: u64) -> Result<(), IcdError> {
     let mut allocator = POOL_ALLOCATOR.lock()?;
     
@@ -407,6 +452,16 @@ pub fn get_pool_stats(device: VkDevice, pool_type: PoolType) -> Result<PoolStats
 }
 
 /// Helper to allocate buffer memory
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - Both device and buffer must be valid Vulkan handles
+/// - Calls vkGetBufferMemoryRequirements and vkBindBufferMemory
+/// - The buffer must not already have memory bound
+/// - The pool type must be compatible with buffer usage
+/// - On failure, the allocation is automatically freed
+/// - The returned allocation ID owns the memory binding
 pub unsafe fn allocate_buffer_memory(
     device: VkDevice,
     buffer: VkBuffer,

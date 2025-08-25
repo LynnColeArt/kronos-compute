@@ -1,0 +1,24 @@
+#version 450
+
+// Simple vector addition: c = a + b
+layout (local_size_x = 64) in;
+
+// Storage buffers
+layout(set = 0, binding = 0) readonly buffer BufferA {
+    float a[];
+};
+
+layout(set = 0, binding = 1) readonly buffer BufferB {
+    float b[];
+};
+
+layout(set = 0, binding = 2) writeonly buffer BufferC {
+    float c[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    
+    // Simple addition - no bounds check needed if dispatch is correct
+    c[idx] = a[idx] + b[idx];
+}

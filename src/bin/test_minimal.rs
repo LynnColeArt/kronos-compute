@@ -1,6 +1,7 @@
 //! Minimal test to debug where benchmark hangs
 
-use kronos::*;
+use kronos_compute::*;
+use kronos_compute::implementation::initialize_kronos;
 use std::ptr;
 
 fn main() {

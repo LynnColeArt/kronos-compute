@@ -50,6 +50,15 @@ lazy_static::lazy_static! {
 }
 
 /// Create Set0 layout for storage buffers
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - Calls vkCreateDescriptorSetLayout through ICD function pointer
+/// - The returned layout must be destroyed with vkDestroyDescriptorSetLayout
+/// - Invalid device handle will cause undefined behavior
+/// - The ICD must be properly initialized with valid function pointers
 pub unsafe fn create_persistent_layout(
     device: VkDevice,
     max_bindings: u32,
@@ -100,6 +109,16 @@ pub unsafe fn create_persistent_layout(
 }
 
 /// Create or get persistent descriptor pool
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - Calls vkCreateDescriptorPool through ICD function pointer
+/// - The returned pool must be destroyed with vkDestroyDescriptorPool
+/// - Pool limits (max_sets, max_descriptors) must not exceed device limits
+/// - Invalid device handle will cause undefined behavior
+/// - Thread safety relies on the Mutex protecting the global manager
 pub unsafe fn get_persistent_pool(
     device: VkDevice,
     max_sets: u32,
@@ -146,6 +165,16 @@ pub unsafe fn get_persistent_pool(
 }
 
 /// Get or create persistent descriptor set for buffers
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - All buffers in the array must be valid VkBuffer handles
+/// - Calls multiple Vulkan functions through ICD pointers
+/// - The descriptor set references the provided buffers
+/// - Buffers must remain valid for the lifetime of the descriptor set
+/// - Buffer usage must be compatible with STORAGE_BUFFER descriptor type
 pub unsafe fn get_persistent_descriptor_set(
     device: VkDevice,
     buffers: &[VkBuffer],
@@ -249,6 +278,16 @@ pub fn create_push_constant_range(size: u32) -> VkPushConstantRange {
 }
 
 /// Create optimized pipeline layout with Set0 + push constants
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - Calls vkCreatePipelineLayout through ICD function pointer
+/// - The returned layout must be destroyed with vkDestroyPipelineLayout
+/// - push_constant_size must not exceed MAX_PUSH_CONSTANT_SIZE (128 bytes)
+/// - set0_binding_count must not exceed device limits
+/// - Invalid parameters may cause device lost or undefined behavior
 pub unsafe fn create_compute_pipeline_layout(
     device: VkDevice,
     set0_binding_count: u32,
@@ -293,6 +332,16 @@ pub unsafe fn create_compute_pipeline_layout(
 }
 
 /// Cleanup persistent descriptors for a device
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - Calls vkDestroyDescriptorPool and vkDestroyDescriptorSetLayout
+/// - All descriptor sets allocated from the pool become invalid
+/// - Must be called before device destruction
+/// - Concurrent use of descriptors during cleanup causes undefined behavior
+/// - The global manager mutex provides thread safety for the cleanup
 pub unsafe fn cleanup_persistent_descriptors(device: VkDevice) -> Result<(), IcdError> {
     let mut manager = DESCRIPTOR_MANAGER.lock()?;
     let device_key = device.as_raw();

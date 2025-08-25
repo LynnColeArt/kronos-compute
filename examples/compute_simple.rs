@@ -1,4 +1,4 @@
-//! Simple compute example - vector addition (c = a + b)
+//! Simple compute example - SAXPY operation (c = alpha * a + b)
 //! 
 //! This demonstrates basic Kronos usage without any of the advanced optimizations
 
@@ -197,8 +197,8 @@ fn main() {
         kronos_compute::vkUnmapMemory(device, memories[1]);
         println!("✓ Input data initialized");
         
-        // Load shader
-        let shader_path = concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/shader.spv");
+        // Load shader - use saxpy.spv which is a proper compute shader
+        let shader_path = concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/saxpy.spv");
         let shader_code = std::fs::read(shader_path).expect("Failed to read shader");
         let shader_words: Vec<u32> = shader_code.chunks_exact(4)
             .map(|bytes| u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
@@ -252,15 +252,21 @@ fn main() {
         let mut descriptor_set_layout = VkDescriptorSetLayout::NULL;
         kronos_compute::vkCreateDescriptorSetLayout(device, &layout_create_info, ptr::null(), &mut descriptor_set_layout);
         
-        // Create pipeline layout
+        // Create pipeline layout with push constants
+        let push_constant_range = VkPushConstantRange {
+            stageFlags: VkShaderStageFlags::COMPUTE,
+            offset: 0,
+            size: 8, // 4 bytes for alpha + 4 bytes for count
+        };
+        
         let pipeline_layout_info = VkPipelineLayoutCreateInfo {
             sType: VkStructureType::PipelineLayoutCreateInfo,
             pNext: ptr::null(),
             flags: 0,
             setLayoutCount: 1,
             pSetLayouts: &descriptor_set_layout,
-            pushConstantRangeCount: 0,
-            pPushConstantRanges: ptr::null(),
+            pushConstantRangeCount: 1,
+            pPushConstantRanges: &push_constant_range,
         };
         
         let mut pipeline_layout = VkPipelineLayout::NULL;
@@ -327,17 +333,17 @@ fn main() {
             VkDescriptorBufferInfo {
                 buffer: buffers[0],
                 offset: 0,
-                range: VkDeviceSize::MAX,
+                range: buffer_size,
             },
             VkDescriptorBufferInfo {
                 buffer: buffers[1],
                 offset: 0,
-                range: VkDeviceSize::MAX,
+                range: buffer_size,
             },
             VkDescriptorBufferInfo {
                 buffer: buffers[2],
                 offset: 0,
-                range: VkDeviceSize::MAX,
+                range: buffer_size,
             },
         ];
         
@@ -415,6 +421,27 @@ fn main() {
         
         kronos_compute::vkBeginCommandBuffer(cmd_buffer, &begin_info);
         
+        // Add memory barrier to ensure buffer data is available
+        let barrier = VkMemoryBarrier {
+            sType: VkStructureType::MemoryBarrier,
+            pNext: ptr::null(),
+            srcAccessMask: VkAccessFlags::HOST_WRITE,
+            dstAccessMask: VkAccessFlags::SHADER_READ,
+        };
+        
+        kronos_compute::vkCmdPipelineBarrier(
+            cmd_buffer,
+            VkPipelineStageFlags::HOST,
+            VkPipelineStageFlags::COMPUTE_SHADER,
+            VkDependencyFlags::empty(),
+            1,
+            &barrier,
+            0,
+            ptr::null(),
+            0,
+            ptr::null(),
+        );
+        
         kronos_compute::vkCmdBindPipeline(cmd_buffer, VkPipelineBindPoint::Compute, compute_pipeline);
         kronos_compute::vkCmdBindDescriptorSets(
             cmd_buffer,
@@ -424,8 +451,28 @@ fn main() {
             0, ptr::null()
         );
         
-        // Dispatch with workgroup size of 64 (from shader)
-        kronos_compute::vkCmdDispatch(cmd_buffer, (ARRAY_SIZE as u32 + 63) / 64, 1, 1);
+        // Push constants for SAXPY shader
+        #[repr(C)]
+        struct PushConstants {
+            alpha: f32,
+            count: u32,
+        }
+        let push_data = PushConstants {
+            alpha: 1.0, // For simple addition, alpha = 1.0
+            count: ARRAY_SIZE as u32,
+        };
+        
+        kronos_compute::vkCmdPushConstants(
+            cmd_buffer,
+            pipeline_layout,
+            VkShaderStageFlags::COMPUTE,
+            0,
+            std::mem::size_of::<PushConstants>() as u32,
+            &push_data as *const _ as *const std::ffi::c_void,
+        );
+        
+        // Dispatch with workgroup size of 256 (from SAXPY shader)
+        kronos_compute::vkCmdDispatch(cmd_buffer, (ARRAY_SIZE as u32 + 255) / 256, 1, 1);
         
         kronos_compute::vkEndCommandBuffer(cmd_buffer);
         println!("✓ Commands recorded");
@@ -453,11 +500,37 @@ fn main() {
         
         let slice_c = std::slice::from_raw_parts(data_c, ARRAY_SIZE);
         
-        // Verify a few results
-        println!("\nResults (first 10 elements):");
+        // Verify results
+        println!("\nResults (first 10 and last 10 elements):");
+        let mut correct_count = 0;
+        let mut incorrect_indices = Vec::new();
+        
+        // Check all results
+        for i in 0..ARRAY_SIZE {
+            let expected = i as f32 + (i * 2) as f32;
+            if (slice_c[i] - expected).abs() < 0.001 {
+                correct_count += 1;
+            } else {
+                incorrect_indices.push(i);
+            }
+        }
+        
+        // Print first 10
         for i in 0..10 {
             let expected = i as f32 + (i * 2) as f32;
             println!("c[{}] = {} (expected {})", i, slice_c[i], expected);
+        }
+        
+        // Print last 10
+        println!("...");
+        for i in (ARRAY_SIZE-10)..ARRAY_SIZE {
+            let expected = i as f32 + (i * 2) as f32;
+            println!("c[{}] = {} (expected {})", i, slice_c[i], expected);
+        }
+        
+        println!("\nCorrect results: {}/{}", correct_count, ARRAY_SIZE);
+        if !incorrect_indices.is_empty() {
+            println!("First few incorrect indices: {:?}", &incorrect_indices[..incorrect_indices.len().min(10)]);
         }
         
         kronos_compute::vkUnmapMemory(device, memories[2]);
@@ -479,6 +552,7 @@ fn main() {
         kronos_compute::vkDestroyInstance(instance, ptr::null());
         
         println!("\n✓ Test completed successfully!");
-        println!("This demonstrates basic Kronos compute functionality.");
+        println!("This demonstrates basic Kronos compute functionality using SAXPY (c = alpha * a + b).");
+        println!("With alpha = 1.0, this performs simple vector addition.");
     }
 }

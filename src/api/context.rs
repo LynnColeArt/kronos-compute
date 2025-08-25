@@ -85,6 +85,15 @@ impl ComputeContext {
         }
     }
     
+    /// Create a Vulkan instance
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - It calls vkCreateInstance which requires the Vulkan loader to be initialized
+    /// - The returned instance must be destroyed with vkDestroyInstance to avoid leaks
+    /// - The config strings must remain valid for the lifetime of the instance creation
+    /// - Null or invalid pointers in the create info will cause undefined behavior
     unsafe fn create_instance(config: &ContextConfig) -> Result<VkInstance> {
         let app_name = CString::new(config.app_name.clone())
             .unwrap_or_else(|_| CString::new("Kronos App").unwrap());
@@ -121,6 +130,15 @@ impl ComputeContext {
         Ok(instance)
     }
     
+    /// Find a physical device with compute capabilities
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The instance must be a valid VkInstance handle
+    /// - Calls vkEnumeratePhysicalDevices which may fail with invalid instance
+    /// - The returned physical device is tied to the instance lifetime
+    /// - Accessing the device after instance destruction is undefined behavior
     unsafe fn find_compute_device(instance: VkInstance) -> Result<(VkPhysicalDevice, u32)> {
         let mut device_count = 0;
         vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
@@ -143,6 +161,15 @@ impl ComputeContext {
         Err(KronosError::DeviceNotFound)
     }
     
+    /// Find a queue family with compute support
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The device must be a valid VkPhysicalDevice handle
+    /// - Calls vkGetPhysicalDeviceQueueFamilyProperties with the device
+    /// - Invalid device handle will cause undefined behavior
+    /// - The device must remain valid during the function execution
     unsafe fn find_compute_queue_family(device: VkPhysicalDevice) -> Result<Option<u32>> {
         let mut queue_family_count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_family_count, ptr::null_mut());
@@ -164,6 +191,16 @@ impl ComputeContext {
         Ok(None)
     }
     
+    /// Create a logical device and get its compute queue
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The physical_device must be a valid VkPhysicalDevice handle
+    /// - The queue_family_index must be valid for the physical device
+    /// - Calls vkCreateDevice and vkGetDeviceQueue which require valid handles
+    /// - The returned device and queue must be properly destroyed
+    /// - Queue family index out of bounds will cause undefined behavior
     unsafe fn create_device(physical_device: VkPhysicalDevice, queue_family_index: u32) -> Result<(VkDevice, VkQueue)> {
         let queue_priority = 1.0f32;
         
@@ -204,6 +241,16 @@ impl ComputeContext {
         Ok((device, queue))
     }
     
+    /// Create a descriptor pool for persistent descriptors
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The device must be a valid VkDevice handle
+    /// - Calls vkCreateDescriptorPool which requires valid device
+    /// - The returned pool must be destroyed with vkDestroyDescriptorPool
+    /// - Invalid device handle will cause undefined behavior
+    /// - Pool creation may fail if device limits are exceeded
     unsafe fn create_descriptor_pool(device: VkDevice) -> Result<VkDescriptorPool> {
         // Create a large pool for persistent descriptors
         let pool_size = VkDescriptorPoolSize {
@@ -230,6 +277,16 @@ impl ComputeContext {
         Ok(pool)
     }
     
+    /// Create a command pool for allocating command buffers
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - The device must be a valid VkDevice handle
+    /// - The queue_family_index must be valid for the device
+    /// - Calls vkCreateCommandPool which requires valid parameters
+    /// - The returned pool must be destroyed with vkDestroyCommandPool
+    /// - Invalid queue family index will cause undefined behavior
     unsafe fn create_command_pool(device: VkDevice, queue_family_index: u32) -> Result<VkCommandPool> {
         let pool_info = VkCommandPoolCreateInfo {
             sType: VkStructureType::CommandPoolCreateInfo,

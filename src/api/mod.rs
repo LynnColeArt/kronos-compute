@@ -16,6 +16,9 @@ pub mod pipeline;
 pub mod command;
 pub mod sync;
 
+#[cfg(test)]
+mod tests;
+
 pub use context::ComputeContext;
 pub use buffer::{Buffer, BufferUsage};
 pub use pipeline::{Pipeline, Shader, PipelineConfig, BufferBinding};
