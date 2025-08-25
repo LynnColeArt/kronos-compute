@@ -10,6 +10,9 @@ pub mod core;
 pub mod sys;
 pub mod ffi;
 
+// Unified safe API
+pub mod api;
+
 #[cfg(feature = "implementation")]
 pub mod implementation;
 
