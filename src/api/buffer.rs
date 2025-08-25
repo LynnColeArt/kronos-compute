@@ -132,6 +132,15 @@ impl ComputeContext {
     }
     
     /// Internal: Create a raw buffer
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - It directly calls Vulkan functions that require valid device handles
+    /// - The caller must ensure `self` contains valid Vulkan handles (device, queue, etc.)
+    /// - The created buffer must be properly destroyed to avoid memory leaks
+    /// - Memory allocation may fail and must be handled appropriately
+    /// - The returned Buffer takes ownership of the Vulkan resources
     unsafe fn create_buffer_raw(&self, size: usize, usage: BufferUsage) -> Result<Buffer> {
         self.with_inner(|inner| {
             // Create buffer
@@ -221,6 +230,16 @@ impl ComputeContext {
     }
     
     /// Copy data between buffers
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - It directly calls Vulkan functions that require valid handles
+    /// - The caller must ensure both `src` and `dst` buffers are valid
+    /// - The `size` must not exceed the size of either buffer
+    /// - Both buffers must have appropriate usage flags (TRANSFER_SRC for src, TRANSFER_DST for dst)
+    /// - The function submits commands to the GPU queue and waits for completion
+    /// - Concurrent access to the buffers during copy is undefined behavior
     unsafe fn copy_buffer(&self, src: &Buffer, dst: &Buffer, size: usize) -> Result<()> {
         self.with_inner(|inner| {
             // Allocate command buffer

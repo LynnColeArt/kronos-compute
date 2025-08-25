@@ -78,6 +78,15 @@ lazy_static::lazy_static! {
 }
 
 /// Create a timeline semaphore
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - Calls vkCreateSemaphore through ICD function pointer
+/// - The returned semaphore must be destroyed with vkDestroySemaphore
+/// - Timeline semaphores require Vulkan 1.2 or VK_KHR_timeline_semaphore
+/// - Invalid device handle will cause undefined behavior
 pub unsafe fn create_timeline_semaphore(
     device: VkDevice,
     initial_value: u64,
@@ -112,6 +121,15 @@ pub unsafe fn create_timeline_semaphore(
 }
 
 /// Get or create timeline semaphore for a queue
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - Both device and queue must be valid Vulkan handles
+/// - The queue must have been created from the device
+/// - Creates timeline semaphore if not exists (calls unsafe create_timeline_semaphore)
+/// - Thread safety is provided by the global TIMELINE_MANAGER mutex
+/// - The returned semaphore is managed by the timeline manager
 pub unsafe fn get_queue_timeline(
     device: VkDevice,
     queue: VkQueue,
@@ -173,6 +191,16 @@ pub fn add_to_batch(
 }
 
 /// Submit the current batch
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The queue must be a valid VkQueue handle
+/// - The fence (if not NULL) must be a valid VkFence handle
+/// - All command buffers in the batch must be in executable state
+/// - Calls vkQueueSubmit with timeline semaphore info
+/// - The queue must not be in use by another thread
+/// - Timeline semaphore operations require proper synchronization
 pub unsafe fn submit_batch(
     queue: VkQueue,
     fence: VkFence,
@@ -250,6 +278,16 @@ pub unsafe fn submit_batch(
 }
 
 /// Wait for timeline value
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - The device must be a valid VkDevice handle
+/// - The queue must be a valid VkQueue with associated timeline
+/// - Calls vkWaitSemaphores through ICD function pointer
+/// - The value must be reachable (not waiting for future unsubmitted work)
+/// - Timeout is in nanoseconds, UINT64_MAX means wait forever
+/// - May block the calling thread
 pub unsafe fn wait_timeline(
     device: VkDevice,
     queue: VkQueue,
@@ -307,6 +345,14 @@ impl BatchBuilder {
     }
     
     /// Submit the batch
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because:
+    /// - All command buffers must be valid and in executable state
+    /// - The queue must be valid and not in use by another thread
+    /// - Calls unsafe functions: begin_batch, add_to_batch, submit_batch
+    /// - Command buffers must not be reset or freed until submission completes
     pub unsafe fn submit(self) -> Result<u64, IcdError> {
         begin_batch(self.queue)?;
         

@@ -362,9 +362,16 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
 }
 
 /// Load global function pointers
-// SAFETY: Caller must ensure:
-// 1. icd contains a valid vkGetInstanceProcAddr function pointer
-// 2. The ICD library is loaded and will remain valid for the lifetime of icd
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - It calls vkGetInstanceProcAddr through a function pointer
+/// - It transmutes void pointers to function pointers without type checking
+/// - The caller must ensure icd contains a valid vkGetInstanceProcAddr function pointer
+/// - The ICD library must be loaded and remain valid for the lifetime of icd
+/// - Function signatures must match the Vulkan specification exactly
+/// - Incorrect function pointers will cause undefined behavior when called
 unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
     let get_proc_addr = icd.vk_get_instance_proc_addr
         .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
@@ -391,10 +398,17 @@ unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
 }
 
 /// Load instance-level functions
-// SAFETY: Caller must ensure:
-// 1. instance is a valid VkInstance created by this ICD
-// 2. icd contains valid function pointers from the same ICD that created the instance
-// 3. The instance will remain valid for at least as long as these functions are used
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - It calls vkGetInstanceProcAddr with the provided instance handle
+/// - It transmutes void pointers to function pointers without type checking
+/// - The instance must be a valid VkInstance created by this ICD
+/// - The icd must contain valid function pointers from the same ICD that created the instance
+/// - The instance must remain valid for at least as long as these functions are used
+/// - Using an invalid instance handle will cause undefined behavior
+/// - Function signatures must match the Vulkan specification exactly
 pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance) -> Result<(), IcdError> {
     let get_proc_addr = icd.vk_get_instance_proc_addr
         .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
@@ -425,10 +439,18 @@ pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance)
 }
 
 /// Load device-level functions
-// SAFETY: Caller must ensure:
-// 1. device is a valid VkDevice created by this ICD
-// 2. icd contains valid function pointers from the same ICD that created the device
-// 3. The device will remain valid for at least as long as these functions are used
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// - It calls vkGetDeviceProcAddr or vkGetInstanceProcAddr with device/instance handles
+/// - It transmutes void pointers to function pointers without type checking
+/// - The device must be a valid VkDevice created by this ICD
+/// - The icd must contain valid function pointers from the same ICD that created the device
+/// - The device must remain valid for at least as long as these functions are used
+/// - Using an invalid device handle will cause undefined behavior
+/// - Function signatures must match the Vulkan specification exactly
+/// - The fallback to instance proc addr requires a valid instance context
 pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Result<(), IcdError> {
     // Get the function loader
     let get_instance_proc = icd.vk_get_instance_proc_addr
