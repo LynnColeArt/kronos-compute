@@ -2,9 +2,9 @@
 //! 
 //! This demonstrates basic Kronos usage without any of the advanced optimizations
 
-use kronos::sys::*;
-use kronos::core::*;
-use kronos::ffi::*;
+use kronos_compute::sys::*;
+use kronos_compute::core::*;
+use kronos_compute::ffi::*;
 use std::ffi::CString;
 use std::ptr;
 
@@ -14,7 +14,7 @@ fn main() {
     
     unsafe {
         // Initialize Kronos with ICD forwarding
-        if let Err(e) = kronos::initialize_kronos() {
+        if let Err(e) = kronos_compute::initialize_kronos() {
             eprintln!("Failed to initialize Kronos: {:?}", e);
             return;
         }
@@ -46,7 +46,7 @@ fn main() {
         };
         
         let mut instance = VkInstance::NULL;
-        let result = kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        let result = kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         if result != VkResult::Success {
             eprintln!("Failed to create instance: {:?}", result);
             return;
@@ -55,20 +55,20 @@ fn main() {
         
         // Find physical device with compute support
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
         let mut physical_device = VkPhysicalDevice::NULL;
         let mut compute_queue_family = u32::MAX;
         
         for device in &devices {
             let mut queue_family_count = 0;
-            kronos::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
+            kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
             
             let mut queue_families = vec![std::mem::zeroed::<VkQueueFamilyProperties>(); queue_family_count as usize];
-            kronos::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
+            kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
             
             for (idx, family) in queue_families.iter().enumerate() {
                 if family.queueFlags.contains(VkQueueFlags::COMPUTE) {
@@ -85,7 +85,7 @@ fn main() {
         
         if physical_device == VkPhysicalDevice::NULL {
             eprintln!("No compute-capable device found");
-            kronos::vkDestroyInstance(instance, ptr::null());
+            kronos_compute::vkDestroyInstance(instance, ptr::null());
             return;
         }
         println!("✓ Found compute-capable device");
@@ -115,17 +115,17 @@ fn main() {
         };
         
         let mut device = VkDevice::NULL;
-        let result = kronos::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
+        let result = kronos_compute::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
         if result != VkResult::Success {
             eprintln!("Failed to create device: {:?}", result);
-            kronos::vkDestroyInstance(instance, ptr::null());
+            kronos_compute::vkDestroyInstance(instance, ptr::null());
             return;
         }
         println!("✓ Logical device created");
         
         // Get compute queue
         let mut compute_queue = VkQueue::NULL;
-        kronos::vkGetDeviceQueue(device, compute_queue_family, 0, &mut compute_queue);
+        kronos_compute::vkGetDeviceQueue(device, compute_queue_family, 0, &mut compute_queue);
         println!("✓ Compute queue obtained");
         
         // Create buffers
@@ -148,13 +148,13 @@ fn main() {
         
         // Get memory properties
         let mut mem_props: VkPhysicalDeviceMemoryProperties = std::mem::zeroed();
-        kronos::vkGetPhysicalDeviceMemoryProperties(physical_device, &mut mem_props);
+        kronos_compute::vkGetPhysicalDeviceMemoryProperties(physical_device, &mut mem_props);
         
         for i in 0..3 {
-            kronos::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffers[i]);
+            kronos_compute::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffers[i]);
             
             let mut mem_reqs: VkMemoryRequirements = std::mem::zeroed();
-            kronos::vkGetBufferMemoryRequirements(device, buffers[i], &mut mem_reqs);
+            kronos_compute::vkGetBufferMemoryRequirements(device, buffers[i], &mut mem_reqs);
             
             // Find host-visible memory type
             let mut memory_type = u32::MAX;
@@ -173,8 +173,8 @@ fn main() {
                 memoryTypeIndex: memory_type,
             };
             
-            kronos::vkAllocateMemory(device, &alloc_info, ptr::null(), &mut memories[i]);
-            kronos::vkBindBufferMemory(device, buffers[i], memories[i], 0);
+            kronos_compute::vkAllocateMemory(device, &alloc_info, ptr::null(), &mut memories[i]);
+            kronos_compute::vkBindBufferMemory(device, buffers[i], memories[i], 0);
         }
         println!("✓ Buffers created");
         
@@ -182,8 +182,8 @@ fn main() {
         let mut data_a: *mut f32 = ptr::null_mut();
         let mut data_b: *mut f32 = ptr::null_mut();
         
-        kronos::vkMapMemory(device, memories[0], 0, buffer_size, 0, &mut data_a as *mut _ as *mut *mut std::ffi::c_void);
-        kronos::vkMapMemory(device, memories[1], 0, buffer_size, 0, &mut data_b as *mut _ as *mut *mut std::ffi::c_void);
+        kronos_compute::vkMapMemory(device, memories[0], 0, buffer_size, 0, &mut data_a as *mut _ as *mut *mut std::ffi::c_void);
+        kronos_compute::vkMapMemory(device, memories[1], 0, buffer_size, 0, &mut data_b as *mut _ as *mut *mut std::ffi::c_void);
         
         let slice_a = std::slice::from_raw_parts_mut(data_a, ARRAY_SIZE);
         let slice_b = std::slice::from_raw_parts_mut(data_b, ARRAY_SIZE);
@@ -193,8 +193,8 @@ fn main() {
             slice_b[i] = (i * 2) as f32;
         }
         
-        kronos::vkUnmapMemory(device, memories[0]);
-        kronos::vkUnmapMemory(device, memories[1]);
+        kronos_compute::vkUnmapMemory(device, memories[0]);
+        kronos_compute::vkUnmapMemory(device, memories[1]);
         println!("✓ Input data initialized");
         
         // Load shader
@@ -213,7 +213,7 @@ fn main() {
         };
         
         let mut shader_module = VkShaderModule::NULL;
-        kronos::vkCreateShaderModule(device, &shader_create_info, ptr::null(), &mut shader_module);
+        kronos_compute::vkCreateShaderModule(device, &shader_create_info, ptr::null(), &mut shader_module);
         println!("✓ Shader loaded");
         
         // Create descriptor set layout
@@ -250,7 +250,7 @@ fn main() {
         };
         
         let mut descriptor_set_layout = VkDescriptorSetLayout::NULL;
-        kronos::vkCreateDescriptorSetLayout(device, &layout_create_info, ptr::null(), &mut descriptor_set_layout);
+        kronos_compute::vkCreateDescriptorSetLayout(device, &layout_create_info, ptr::null(), &mut descriptor_set_layout);
         
         // Create pipeline layout
         let pipeline_layout_info = VkPipelineLayoutCreateInfo {
@@ -264,7 +264,7 @@ fn main() {
         };
         
         let mut pipeline_layout = VkPipelineLayout::NULL;
-        kronos::vkCreatePipelineLayout(device, &pipeline_layout_info, ptr::null(), &mut pipeline_layout);
+        kronos_compute::vkCreatePipelineLayout(device, &pipeline_layout_info, ptr::null(), &mut pipeline_layout);
         
         // Create compute pipeline
         let entry_point = CString::new("main").unwrap();
@@ -289,7 +289,7 @@ fn main() {
         };
         
         let mut compute_pipeline = VkPipeline::NULL;
-        kronos::vkCreateComputePipelines(device, VkPipelineCache::NULL, 1, &pipeline_info, ptr::null(), &mut compute_pipeline);
+        kronos_compute::vkCreateComputePipelines(device, VkPipelineCache::NULL, 1, &pipeline_info, ptr::null(), &mut compute_pipeline);
         println!("✓ Compute pipeline created");
         
         // Create descriptor pool
@@ -308,7 +308,7 @@ fn main() {
         };
         
         let mut descriptor_pool = VkDescriptorPool::NULL;
-        kronos::vkCreateDescriptorPool(device, &pool_info, ptr::null(), &mut descriptor_pool);
+        kronos_compute::vkCreateDescriptorPool(device, &pool_info, ptr::null(), &mut descriptor_pool);
         
         // Allocate descriptor set
         let alloc_info = VkDescriptorSetAllocateInfo {
@@ -320,7 +320,7 @@ fn main() {
         };
         
         let mut descriptor_set = VkDescriptorSet::NULL;
-        kronos::vkAllocateDescriptorSets(device, &alloc_info, &mut descriptor_set);
+        kronos_compute::vkAllocateDescriptorSets(device, &alloc_info, &mut descriptor_set);
         
         // Update descriptor set
         let buffer_infos = [
@@ -380,7 +380,7 @@ fn main() {
             },
         ];
         
-        kronos::vkUpdateDescriptorSets(device, 3, writes.as_ptr(), 0, ptr::null());
+        kronos_compute::vkUpdateDescriptorSets(device, 3, writes.as_ptr(), 0, ptr::null());
         println!("✓ Descriptors updated");
         
         // Create command pool and buffer
@@ -392,7 +392,7 @@ fn main() {
         };
         
         let mut command_pool = VkCommandPool::NULL;
-        kronos::vkCreateCommandPool(device, &pool_create_info, ptr::null(), &mut command_pool);
+        kronos_compute::vkCreateCommandPool(device, &pool_create_info, ptr::null(), &mut command_pool);
         
         let cmd_alloc_info = VkCommandBufferAllocateInfo {
             sType: VkStructureType::CommandBufferAllocateInfo,
@@ -403,7 +403,7 @@ fn main() {
         };
         
         let mut cmd_buffer = VkCommandBuffer::NULL;
-        kronos::vkAllocateCommandBuffers(device, &cmd_alloc_info, &mut cmd_buffer);
+        kronos_compute::vkAllocateCommandBuffers(device, &cmd_alloc_info, &mut cmd_buffer);
         
         // Record commands
         let begin_info = VkCommandBufferBeginInfo {
@@ -413,10 +413,10 @@ fn main() {
             pInheritanceInfo: ptr::null(),
         };
         
-        kronos::vkBeginCommandBuffer(cmd_buffer, &begin_info);
+        kronos_compute::vkBeginCommandBuffer(cmd_buffer, &begin_info);
         
-        kronos::vkCmdBindPipeline(cmd_buffer, VkPipelineBindPoint::Compute, compute_pipeline);
-        kronos::vkCmdBindDescriptorSets(
+        kronos_compute::vkCmdBindPipeline(cmd_buffer, VkPipelineBindPoint::Compute, compute_pipeline);
+        kronos_compute::vkCmdBindDescriptorSets(
             cmd_buffer,
             VkPipelineBindPoint::Compute,
             pipeline_layout,
@@ -425,9 +425,9 @@ fn main() {
         );
         
         // Dispatch with workgroup size of 64 (from shader)
-        kronos::vkCmdDispatch(cmd_buffer, (ARRAY_SIZE as u32 + 63) / 64, 1, 1);
+        kronos_compute::vkCmdDispatch(cmd_buffer, (ARRAY_SIZE as u32 + 63) / 64, 1, 1);
         
-        kronos::vkEndCommandBuffer(cmd_buffer);
+        kronos_compute::vkEndCommandBuffer(cmd_buffer);
         println!("✓ Commands recorded");
         
         // Submit and wait
@@ -443,13 +443,13 @@ fn main() {
             pSignalSemaphores: ptr::null(),
         };
         
-        kronos::vkQueueSubmit(compute_queue, 1, &submit_info, VkFence::NULL);
-        kronos::vkQueueWaitIdle(compute_queue);
+        kronos_compute::vkQueueSubmit(compute_queue, 1, &submit_info, VkFence::NULL);
+        kronos_compute::vkQueueWaitIdle(compute_queue);
         println!("✓ Compute work submitted");
         
         // Read results
         let mut data_c: *mut f32 = ptr::null_mut();
-        kronos::vkMapMemory(device, memories[2], 0, buffer_size, 0, &mut data_c as *mut _ as *mut *mut std::ffi::c_void);
+        kronos_compute::vkMapMemory(device, memories[2], 0, buffer_size, 0, &mut data_c as *mut _ as *mut *mut std::ffi::c_void);
         
         let slice_c = std::slice::from_raw_parts(data_c, ARRAY_SIZE);
         
@@ -460,23 +460,23 @@ fn main() {
             println!("c[{}] = {} (expected {})", i, slice_c[i], expected);
         }
         
-        kronos::vkUnmapMemory(device, memories[2]);
+        kronos_compute::vkUnmapMemory(device, memories[2]);
         
         // Cleanup
-        kronos::vkDestroyCommandPool(device, command_pool, ptr::null());
-        kronos::vkDestroyDescriptorPool(device, descriptor_pool, ptr::null());
-        kronos::vkDestroyPipeline(device, compute_pipeline, ptr::null());
-        kronos::vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
-        kronos::vkDestroyDescriptorSetLayout(device, descriptor_set_layout, ptr::null());
-        kronos::vkDestroyShaderModule(device, shader_module, ptr::null());
+        kronos_compute::vkDestroyCommandPool(device, command_pool, ptr::null());
+        kronos_compute::vkDestroyDescriptorPool(device, descriptor_pool, ptr::null());
+        kronos_compute::vkDestroyPipeline(device, compute_pipeline, ptr::null());
+        kronos_compute::vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
+        kronos_compute::vkDestroyDescriptorSetLayout(device, descriptor_set_layout, ptr::null());
+        kronos_compute::vkDestroyShaderModule(device, shader_module, ptr::null());
         
         for i in 0..3 {
-            kronos::vkDestroyBuffer(device, buffers[i], ptr::null());
-            kronos::vkFreeMemory(device, memories[i], ptr::null());
+            kronos_compute::vkDestroyBuffer(device, buffers[i], ptr::null());
+            kronos_compute::vkFreeMemory(device, memories[i], ptr::null());
         }
         
-        kronos::vkDestroyDevice(device, ptr::null());
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyDevice(device, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
         
         println!("\n✓ Test completed successfully!");
         println!("This demonstrates basic Kronos compute functionality.");

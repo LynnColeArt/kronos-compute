@@ -1,8 +1,8 @@
 //! Performance counter validation tests
 
-use kronos::sys::*;
-use kronos::core::*;
-use kronos::implementation;
+use kronos_compute::sys::*;
+use kronos_compute::core::*;
+use kronos_compute::implementation;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::ptr;
@@ -22,7 +22,7 @@ fn install_counter_hooks() {
 #[test]
 fn test_zero_descriptor_updates() {
     unsafe {
-        kronos::initialize_kronos().expect("Failed to initialize");
+        kronos_compute::initialize_kronos().expect("Failed to initialize");
         
         // Reset counter
         DESCRIPTOR_UPDATES.store(0, Ordering::SeqCst);
@@ -114,7 +114,7 @@ fn test_barrier_reduction() {
 #[test]
 fn test_zero_allocations_steady_state() {
     unsafe {
-        kronos::initialize_kronos().expect("Failed to initialize");
+        kronos_compute::initialize_kronos().expect("Failed to initialize");
         
         // Initialize pools (would use real device)
         let device = VkDevice::NULL;

@@ -1,8 +1,8 @@
 //! AMD GPU validation tests - specific to AMD hardware
 
-use kronos::sys::*;
-use kronos::core::*;
-use kronos::implementation;
+use kronos_compute::sys::*;
+use kronos_compute::core::*;
+use kronos_compute::implementation;
 use std::ffi::CString;
 use std::ptr;
 use std::time::Instant;
@@ -11,7 +11,7 @@ use std::time::Instant;
 #[cfg_attr(not(feature = "amd_gpu"), ignore)]
 fn test_amd_gpu_detection() {
     unsafe {
-        kronos::initialize_kronos().expect("Failed to initialize Kronos");
+        kronos_compute::initialize_kronos().expect("Failed to initialize Kronos");
         
         // Create instance
         let app_name = CString::new("AMD Validation").unwrap();
@@ -37,22 +37,22 @@ fn test_amd_gpu_detection() {
         };
         
         let mut instance = VkInstance::NULL;
-        kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         
         // Find AMD GPU
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         assert!(device_count > 0, "No GPUs found");
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
         let mut amd_device = VkPhysicalDevice::NULL;
         let mut amd_props = VkPhysicalDeviceProperties::default();
         
         for device in devices {
             let mut props: VkPhysicalDeviceProperties = std::mem::zeroed();
-            kronos::vkGetPhysicalDeviceProperties(device, &mut props);
+            kronos_compute::vkGetPhysicalDeviceProperties(device, &mut props);
             
             if props.vendorID == 0x1002 { // AMD vendor ID
                 amd_device = device;
@@ -78,7 +78,7 @@ fn test_amd_gpu_detection() {
         assert_eq!(vendor, implementation::barrier_policy::GpuVendor::AMD);
         println!("✓ AMD-specific optimizations active");
         
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
     }
 }
 
@@ -86,7 +86,7 @@ fn test_amd_gpu_detection() {
 #[cfg_attr(not(feature = "amd_gpu"), ignore)]
 fn test_amd_compute_dispatch() {
     unsafe {
-        kronos::initialize_kronos().expect("Failed to initialize");
+        kronos_compute::initialize_kronos().expect("Failed to initialize");
         
         let app_name = CString::new("AMD Compute Test").unwrap();
         let app_info = VkApplicationInfo {
@@ -111,27 +111,27 @@ fn test_amd_compute_dispatch() {
         };
         
         let mut instance = VkInstance::NULL;
-        kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         
         // Find AMD device
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
         let mut physical_device = VkPhysicalDevice::NULL;
         let mut compute_queue_family = u32::MAX;
         
         for device in devices {
             let mut props: VkPhysicalDeviceProperties = std::mem::zeroed();
-            kronos::vkGetPhysicalDeviceProperties(device, &mut props);
+            kronos_compute::vkGetPhysicalDeviceProperties(device, &mut props);
             
             if props.vendorID == 0x1002 { // AMD
                 // Find compute queue
                 let mut queue_count = 0;
-                kronos::vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_count, ptr::null_mut());
+                kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_count, ptr::null_mut());
                 let mut queues = vec![std::mem::zeroed::<VkQueueFamilyProperties>(); queue_count as usize];
-                kronos::vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_count, queues.as_mut_ptr());
+                kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_count, queues.as_mut_ptr());
                 
                 for (idx, q) in queues.iter().enumerate() {
                     if q.queueFlags.contains(VkQueueFlags::COMPUTE) {
@@ -171,10 +171,10 @@ fn test_amd_compute_dispatch() {
         };
         
         let mut device = VkDevice::NULL;
-        kronos::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
+        kronos_compute::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
         
         let mut queue = VkQueue::NULL;
-        kronos::vkGetDeviceQueue(device, compute_queue_family, 0, &mut queue);
+        kronos_compute::vkGetDeviceQueue(device, compute_queue_family, 0, &mut queue);
         
         // Initialize optimizations
         implementation::pool_allocator::init_pools(device, physical_device).unwrap();
@@ -197,9 +197,9 @@ fn test_amd_compute_dispatch() {
         let mut buffer_b = VkBuffer::NULL;
         let mut buffer_c = VkBuffer::NULL;
         
-        kronos::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffer_a);
-        kronos::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffer_b);
-        kronos::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffer_c);
+        kronos_compute::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffer_a);
+        kronos_compute::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffer_b);
+        kronos_compute::vkCreateBuffer(device, &buffer_info, ptr::null(), &mut buffer_c);
         
         // Allocate from pools (should be zero vkAllocateMemory calls)
         implementation::pool_allocator::allocate_buffer_memory(
@@ -229,7 +229,7 @@ fn test_amd_compute_dispatch() {
         };
         
         let mut cmd_pool = VkCommandPool::NULL;
-        kronos::vkCreateCommandPool(device, &pool_info, ptr::null(), &mut cmd_pool);
+        kronos_compute::vkCreateCommandPool(device, &pool_info, ptr::null(), &mut cmd_pool);
         
         // Test barrier policy with multiple dispatches
         let mut barrier_tracker = implementation::barrier_policy::BarrierTracker::new(
@@ -249,7 +249,7 @@ fn test_amd_compute_dispatch() {
             };
             
             let mut cmd = VkCommandBuffer::NULL;
-            kronos::vkAllocateCommandBuffers(device, &alloc_info, &mut cmd);
+            kronos_compute::vkAllocateCommandBuffers(device, &alloc_info, &mut cmd);
             
             let begin_info = VkCommandBufferBeginInfo {
                 sType: VkStructureType::CommandBufferBeginInfo,
@@ -258,7 +258,7 @@ fn test_amd_compute_dispatch() {
                 pInheritanceInfo: ptr::null(),
             };
             
-            kronos::vkBeginCommandBuffer(cmd, &begin_info);
+            kronos_compute::vkBeginCommandBuffer(cmd, &begin_info);
             
             // Track buffer access - AMD prefers fewer barriers
             if i == 0 {
@@ -279,7 +279,7 @@ fn test_amd_compute_dispatch() {
                 SIZE
             );
             
-            kronos::vkEndCommandBuffer(cmd);
+            kronos_compute::vkEndCommandBuffer(cmd);
             
             let submit = VkSubmitInfo {
                 sType: VkStructureType::SubmitInfo,
@@ -293,10 +293,10 @@ fn test_amd_compute_dispatch() {
                 pSignalSemaphores: ptr::null(),
             };
             
-            kronos::vkQueueSubmit(queue, 1, &submit, VkFence::NULL);
+            kronos_compute::vkQueueSubmit(queue, 1, &submit, VkFence::NULL);
         }
         
-        kronos::vkQueueWaitIdle(queue);
+        kronos_compute::vkQueueWaitIdle(queue);
         let elapsed = start.elapsed();
         
         println!("\nAMD Performance Results:");
@@ -305,12 +305,12 @@ fn test_amd_compute_dispatch() {
         println!("  Barrier optimization: AMD-specific (compute→compute preferred)");
         
         // Cleanup
-        kronos::vkDestroyCommandPool(device, cmd_pool, ptr::null());
-        kronos::vkDestroyBuffer(device, buffer_a, ptr::null());
-        kronos::vkDestroyBuffer(device, buffer_b, ptr::null());
-        kronos::vkDestroyBuffer(device, buffer_c, ptr::null());
-        kronos::vkDestroyDevice(device, ptr::null());
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyCommandPool(device, cmd_pool, ptr::null());
+        kronos_compute::vkDestroyBuffer(device, buffer_a, ptr::null());
+        kronos_compute::vkDestroyBuffer(device, buffer_b, ptr::null());
+        kronos_compute::vkDestroyBuffer(device, buffer_c, ptr::null());
+        kronos_compute::vkDestroyDevice(device, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
         
         println!("\n✓ AMD validation complete!");
     }
@@ -320,7 +320,7 @@ fn test_amd_compute_dispatch() {
 #[cfg_attr(not(feature = "amd_gpu"), ignore)]
 fn test_amd_timeline_batching() {
     unsafe {
-        kronos::initialize_kronos().expect("Failed to initialize");
+        kronos_compute::initialize_kronos().expect("Failed to initialize");
         
         // Similar setup to find AMD GPU...
         let app_name = CString::new("AMD Timeline Test").unwrap();
@@ -346,7 +346,7 @@ fn test_amd_timeline_batching() {
         };
         
         let mut instance = VkInstance::NULL;
-        kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         
         // Find AMD device and create logical device (abbreviated)
         // ... [setup code similar to above]
@@ -371,6 +371,6 @@ fn test_amd_timeline_batching() {
         println!("  Submit reduction: {:.1}%", reduction * 100.0);
         println!("  ✓ Meets 30-50% target");
         
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
     }
 }

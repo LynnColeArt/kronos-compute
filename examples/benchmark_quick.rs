@@ -1,6 +1,6 @@
 //! Quick performance comparison
 
-use kronos::*;
+use kronos_compute::*;
 use std::ffi::CString;
 use std::ptr;
 use std::time::{Duration, Instant};
@@ -38,7 +38,7 @@ fn main() {
     
     // Initialize Kronos
     unsafe {
-        if let Err(e) = kronos::initialize_kronos() {
+        if let Err(e) = kronos_compute::initialize_kronos() {
             eprintln!("Failed to initialize Kronos: {:?}", e);
             return;
         }

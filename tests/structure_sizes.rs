@@ -1,6 +1,6 @@
 //! Tests to verify structure sizes and layouts
 
-use kronos::*;
+use kronos_compute::*;
 use std::mem;
 
 #[test]

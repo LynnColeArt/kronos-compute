@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use libc;
 
 // Kronos imports
-use kronos::*;
+use kronos_compute::*;
 
 // Standard Vulkan function types (matching Kronos signatures)
 type VulkanCreateInstance = unsafe extern "C" fn(
@@ -107,7 +107,7 @@ fn main() {
 
     unsafe {
         // Initialize Kronos
-        if let Err(e) = kronos::initialize_kronos() {
+        if let Err(e) = kronos_compute::initialize_kronos() {
             eprintln!("Failed to initialize Kronos: {:?}", e);
             return;
         }

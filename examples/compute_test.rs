@@ -1,7 +1,7 @@
 //! Test compute functionality with thread-safe implementation
 
-use kronos::*;
-use kronos::ffi::*;
+use kronos_compute::*;
+use kronos_compute::ffi::*;
 use std::ffi::CString;
 use std::ptr;
 

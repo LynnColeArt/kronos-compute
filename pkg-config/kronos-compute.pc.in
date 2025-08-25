@@ -1,0 +1,11 @@
+prefix=@PREFIX@
+exec_prefix=@EXEC_PREFIX@
+libdir=@LIBDIR@
+includedir=@INCLUDEDIR@
+
+Name: kronos-compute
+Description: High-Performance Compute-Only Vulkan Implementation
+Version: @VERSION@
+Libs: -L${libdir} -lkronos_compute
+Cflags: -I${includedir}
+Requires:

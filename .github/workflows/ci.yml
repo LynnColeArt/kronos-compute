@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable, nightly]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+    
+    - name: Install Vulkan SDK
+      run: |
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
+        sudo apt update
+        sudo apt install -y vulkan-sdk
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo build
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build
+      run: cargo build --all-features --verbose
+    
+    - name: Run tests
+      run: cargo test --all-features --verbose
+    
+    - name: Run clippy
+      if: matrix.rust == 'stable'
+      run: cargo clippy --all-features -- -D warnings
+    
+    - name: Check formatting
+      if: matrix.rust == 'stable'
+      run: cargo fmt -- --check
+
+  examples:
+    name: Build Examples
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Install Vulkan SDK
+      run: |
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
+        sudo apt update
+        sudo apt install -y vulkan-sdk
+    
+    - name: Build examples
+      run: |
+        cargo build --example compute_optimized --release
+        cargo build --example compute_test --release
+        cargo build --example descriptor_test --release
+        cargo build --example simple_test --release
+        cargo build --example sync_test --release
+        cargo build --example test_thread_safety --release
+
+  benchmarks:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Install Vulkan SDK
+      run: |
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
+        sudo apt update
+        sudo apt install -y vulkan-sdk mesa-vulkan-drivers
+    
+    - name: Run benchmarks
+      run: cargo bench --no-run --all-features
+
+  cbindgen:
+    name: Generate C Headers
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Install cbindgen
+      run: cargo install cbindgen
+    
+    - name: Generate C header
+      run: cbindgen --config cbindgen.toml --crate kronos-compute --output kronos-check.h
+    
+    - name: Check header matches
+      run: |
+        if ! diff -q kronos.h kronos-check.h; then
+          echo "ERROR: Generated header doesn't match committed header"
+          echo "Please run 'cbindgen --config cbindgen.toml --crate kronos-compute --output kronos.h'"
+          exit 1
+        fi
+
+  shaders:
+    name: Build Shaders
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Vulkan SDK
+      run: |
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
+        sudo apt update
+        sudo apt install -y vulkan-sdk
+    
+    - name: Build shaders
+      run: |
+        chmod +x scripts/build_shaders.sh
+        scripts/build_shaders.sh
+    
+    - name: Check shader files exist
+      run: |
+        test -f shaders/shader.spv || exit 1
+        test -f shaders/saxpy.spv || exit 1

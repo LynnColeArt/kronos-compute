@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use libc;
 
 // Kronos imports
-use kronos::*;
+use kronos_compute::*;
 
 fn measure_overhead<F>(name: &str, iterations: u32, mut op: F) -> (Duration, f64)
 where
@@ -43,7 +43,7 @@ fn main() {
 
     unsafe {
         // Initialize Kronos
-        if let Err(e) = kronos::initialize_kronos() {
+        if let Err(e) = kronos_compute::initialize_kronos() {
             eprintln!("Failed to initialize Kronos: {:?}", e);
             return;
         }

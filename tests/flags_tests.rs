@@ -1,6 +1,6 @@
 //! Tests for the flags module
 
-use kronos::core::flags::*;
+use kronos_compute::core::flags::*;
 
 #[test]
 fn test_queue_flags() {

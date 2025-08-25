@@ -1,6 +1,6 @@
 //! Test thread safety of Kronos implementation
 
-use kronos::*;
+use kronos_compute::*;
 use std::thread;
 use std::sync::Arc;
 

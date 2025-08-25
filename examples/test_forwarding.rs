@@ -1,6 +1,6 @@
 //! Test compute forwarding to real Vulkan driver
 
-use kronos::*;
+use kronos_compute::*;
 use std::ptr;
 use std::ffi::CString;
 
@@ -13,7 +13,7 @@ fn main() {
         
         // Try to initialize with real ICD
         println!("1. Attempting to use real Vulkan driver...");
-        match kronos::initialize_kronos() {
+        match kronos_compute::initialize_kronos() {
             Ok(()) => {
                 println!("   ✓ Kronos initialized successfully");
                 println!("   ✓ Will forward compute calls to real driver if available");

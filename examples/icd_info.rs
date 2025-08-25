@@ -1,8 +1,8 @@
 //! Simple ICD information tool - shows available Vulkan devices
 
-use kronos::sys::*;
-use kronos::core::*;
-use kronos::*;
+use kronos_compute::sys::*;
+use kronos_compute::core::*;
+use kronos_compute::*;
 use std::ffi::CString;
 use std::ptr;
 
@@ -12,7 +12,7 @@ fn main() {
     
     unsafe {
         // Initialize Kronos
-        match kronos::initialize_kronos() {
+        match kronos_compute::initialize_kronos() {
             Ok(_) => println!("✓ Kronos ICD loader initialized"),
             Err(e) => {
                 eprintln!("✗ Failed to initialize Kronos: {:?}", e);
@@ -44,7 +44,7 @@ fn main() {
         };
         
         let mut instance = VkInstance::NULL;
-        let result = kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        let result = kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         if result != VkResult::Success {
             eprintln!("✗ Failed to create instance: {:?}", result);
             return;
@@ -53,22 +53,22 @@ fn main() {
         
         // Enumerate physical devices
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         println!("Found {} physical device(s):\n", device_count);
         
         if device_count == 0 {
             println!("⚠️  No Vulkan devices found. Check your drivers.");
-            kronos::vkDestroyInstance(instance, ptr::null());
+            kronos_compute::vkDestroyInstance(instance, ptr::null());
             return;
         }
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
         // Print info for each device
         for (idx, device) in devices.iter().enumerate() {
             let mut props: VkPhysicalDeviceProperties = std::mem::zeroed();
-            kronos::vkGetPhysicalDeviceProperties(*device, &mut props);
+            kronos_compute::vkGetPhysicalDeviceProperties(*device, &mut props);
             
             let device_name = std::str::from_utf8(&props.deviceName)
                 .unwrap_or("Unknown")
@@ -91,7 +91,7 @@ fn main() {
             
             // Get memory info
             let mut mem_props: VkPhysicalDeviceMemoryProperties = std::mem::zeroed();
-            kronos::vkGetPhysicalDeviceMemoryProperties(*device, &mut mem_props);
+            kronos_compute::vkGetPhysicalDeviceMemoryProperties(*device, &mut mem_props);
             
             println!("  Memory Types: {}", mem_props.memoryTypeCount);
             let mut total_device_memory = 0u64;
@@ -111,11 +111,11 @@ fn main() {
             
             // Get queue families
             let mut queue_family_count = 0;
-            kronos::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
+            kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
             println!("  Queue Families: {}", queue_family_count);
             
             let mut queue_families = vec![std::mem::zeroed::<VkQueueFamilyProperties>(); queue_family_count as usize];
-            kronos::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
+            kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
             
             for (i, family) in queue_families.iter().enumerate() {
                 let mut caps = Vec::new();
@@ -135,7 +135,7 @@ fn main() {
             
             // Check features relevant to compute
             let mut features: VkPhysicalDeviceFeatures = std::mem::zeroed();
-            kronos::vkGetPhysicalDeviceFeatures(*device, &mut features);
+            kronos_compute::vkGetPhysicalDeviceFeatures(*device, &mut features);
             
             println!("  Compute Features:");
             println!("    Robust buffer access: {}", features.robustBufferAccess != 0);
@@ -143,14 +143,14 @@ fn main() {
             println!("    Shader Int16: {}", features.shaderInt16 != 0);
             
             // Vendor-specific optimization info
-            let vendor = kronos::implementation::barrier_policy::GpuVendor::from_vendor_id(props.vendorID);
+            let vendor = kronos_compute::implementation::barrier_policy::GpuVendor::from_vendor_id(props.vendorID);
             println!("  Kronos Optimizations: {:?} profile", vendor);
             
             println!();
         }
         
         // Cleanup
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
         println!("✓ Cleanup complete");
     }
 }

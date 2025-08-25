@@ -5,7 +5,7 @@ fn main() {
     println!("========================================");
     
     // Test basic types
-    use kronos::*;
+    use kronos_compute::*;
     
     // 1. Test handle creation
     let instance = VkInstance::from_raw(1);

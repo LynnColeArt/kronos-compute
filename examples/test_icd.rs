@@ -1,7 +1,7 @@
 //! Test ICD loader functionality
 
-use kronos::*;
-use kronos::implementation::*;
+use kronos_compute::*;
+use kronos_compute::implementation::*;
 use std::ptr;
 use std::ffi::CString;
 
@@ -11,7 +11,7 @@ fn main() {
         
         // Initialize Kronos
         println!("1. Initializing Kronos...");
-        match kronos::initialize_kronos() {
+        match kronos_compute::initialize_kronos() {
             Ok(()) => println!("   ✓ Kronos initialized successfully"),
             Err(e) => {
                 println!("   ✗ Failed to initialize Kronos: {}", e);

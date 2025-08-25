@@ -306,9 +306,33 @@ All unsafe functions include comprehensive safety documentation.
 - ✅ ICD loader with Vulkan forwarding
 - ✅ Comprehensive benchmark suite
 - ✅ Basic examples working
-- ⏳ SPIR-V shader integration for benchmarks
+- ✅ Published to crates.io (v0.1.0)
+- ✅ C header generation
+- ✅ SPIR-V shader build scripts
 - ⏳ Safe wrapper API
 - ⏳ Production testing
+
+## 🗺️ Roadmap
+
+### v0.2.0 (Q1 2025)
+- NVIDIA & Intel GPU optimizations
+- Multi-queue concurrent dispatch support
+- Dynamic memory pool resizing
+- Vulkan validation layer support
+
+### v0.3.0 (Q2 2025)
+- Enhanced Sporkle integration
+- Advanced timeline semaphore patterns
+- Ray query & cooperative matrix support
+- Performance regression testing
+
+### v1.0.0 (Q3 2025)
+- Production-ready status
+- Full Vulkan 1.3 compute coverage
+- Platform-specific optimizations
+- Enterprise support
+
+See [TODO.md](TODO.md) for the complete roadmap and contribution opportunities.
 
 ## 🙏 Acknowledgments
 

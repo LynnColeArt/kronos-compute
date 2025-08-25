@@ -41,6 +41,21 @@ implementation = ["lazy_static"]  # Enable the Rust implementation
 name = "kronos_compute"
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "demo"
+path = "src/bin/demo.rs"
+required-features = ["implementation"]
+
+[[bin]]
+name = "test_minimal"
+path = "src/bin/test_minimal.rs"
+required-features = ["implementation"]
+
+[[bin]]
+name = "test_optimizations"
+path = "src/bin/test_optimizations.rs"
+required-features = ["implementation"]
+
 [[example]]
 name = "compute_simple"
 path = "examples/compute_simple.rs"

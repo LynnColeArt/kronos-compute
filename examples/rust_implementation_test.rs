@@ -1,6 +1,6 @@
 //! Test the actual Rust implementation of Kronos
 
-use kronos::*;
+use kronos_compute::*;
 use std::ffi::CString;
 use std::ptr;
 
@@ -35,7 +35,7 @@ fn main() {
         };
         
         let mut instance = VkInstance::NULL;
-        let result = kronos::implementation::instance::vkCreateInstance(
+        let result = kronos_compute::implementation::instance::vkCreateInstance(
             &create_info, 
             ptr::null(), 
             &mut instance
@@ -45,7 +45,7 @@ fn main() {
         
         // 2. Enumerate physical devices
         let mut device_count = 0;
-        kronos::implementation::instance::vkEnumeratePhysicalDevices(
+        kronos_compute::implementation::instance::vkEnumeratePhysicalDevices(
             instance,
             &mut device_count,
             ptr::null_mut()
@@ -54,7 +54,7 @@ fn main() {
         println!("✓ Found {} physical device(s)", device_count);
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::implementation::instance::vkEnumeratePhysicalDevices(
+        kronos_compute::implementation::instance::vkEnumeratePhysicalDevices(
             instance,
             &mut device_count,
             devices.as_mut_ptr()
@@ -64,7 +64,7 @@ fn main() {
         
         // 3. Get device properties
         let mut properties = std::mem::zeroed::<VkPhysicalDeviceProperties>();
-        kronos::implementation::instance::vkGetPhysicalDeviceProperties(
+        kronos_compute::implementation::instance::vkGetPhysicalDeviceProperties(
             physical_device,
             &mut properties
         );
@@ -100,7 +100,7 @@ fn main() {
         };
         
         let mut device = VkDevice::NULL;
-        let result = kronos::implementation::device::vkCreateDevice(
+        let result = kronos_compute::implementation::device::vkCreateDevice(
             physical_device,
             &device_create_info,
             ptr::null(),
@@ -111,7 +111,7 @@ fn main() {
         
         // 5. Get compute queue
         let mut queue = VkQueue::NULL;
-        kronos::implementation::device::vkGetDeviceQueue(
+        kronos_compute::implementation::device::vkGetDeviceQueue(
             device,
             0, // queue family
             0, // queue index
@@ -133,7 +133,7 @@ fn main() {
         };
         
         let mut buffer = VkBuffer::NULL;
-        let result = kronos::implementation::buffer::vkCreateBuffer(
+        let result = kronos_compute::implementation::buffer::vkCreateBuffer(
             device,
             &buffer_info,
             ptr::null(),
@@ -144,7 +144,7 @@ fn main() {
         
         // 7. Get memory requirements
         let mut mem_reqs = std::mem::zeroed::<VkMemoryRequirements>();
-        kronos::implementation::buffer::vkGetBufferMemoryRequirements(
+        kronos_compute::implementation::buffer::vkGetBufferMemoryRequirements(
             device,
             buffer,
             &mut mem_reqs
@@ -162,7 +162,7 @@ fn main() {
         };
         
         let mut memory = VkDeviceMemory::NULL;
-        let result = kronos::implementation::memory::vkAllocateMemory(
+        let result = kronos_compute::implementation::memory::vkAllocateMemory(
             device,
             &alloc_info,
             ptr::null(),
@@ -172,7 +172,7 @@ fn main() {
         println!("✓ Memory allocated: {:?} (handle: {})", result, memory.as_raw());
         
         // 9. Bind buffer memory
-        let result = kronos::implementation::buffer::vkBindBufferMemory(
+        let result = kronos_compute::implementation::buffer::vkBindBufferMemory(
             device,
             buffer,
             memory,
@@ -183,7 +183,7 @@ fn main() {
         
         // 10. Map memory
         let mut data_ptr = ptr::null_mut();
-        let result = kronos::implementation::memory::vkMapMemory(
+        let result = kronos_compute::implementation::memory::vkMapMemory(
             device,
             memory,
             0,
@@ -204,7 +204,7 @@ fn main() {
         }
         
         // 11. Unmap memory
-        kronos::implementation::memory::vkUnmapMemory(device, memory);
+        kronos_compute::implementation::memory::vkUnmapMemory(device, memory);
         println!("✓ Memory unmapped");
         
         // 12. Create command pool
@@ -216,7 +216,7 @@ fn main() {
         };
         
         let mut command_pool = VkCommandPool::NULL;
-        let result = kronos::vkCreateCommandPool(
+        let result = kronos_compute::vkCreateCommandPool(
             device,
             &pool_info,
             ptr::null(),
@@ -235,7 +235,7 @@ fn main() {
         };
         
         let mut cmd_buffer = VkCommandBuffer::NULL;
-        let result = kronos::vkAllocateCommandBuffers(
+        let result = kronos_compute::vkAllocateCommandBuffers(
             device,
             &alloc_cmd_info,
             &mut cmd_buffer
@@ -251,7 +251,7 @@ fn main() {
             pInheritanceInfo: ptr::null(),
         };
         
-        let result = kronos::vkBeginCommandBuffer(
+        let result = kronos_compute::vkBeginCommandBuffer(
             cmd_buffer,
             &begin_info
         );
@@ -271,7 +271,7 @@ fn main() {
             size: VK_WHOLE_SIZE,
         };
         
-        kronos::vkCmdPipelineBarrier(
+        kronos_compute::vkCmdPipelineBarrier(
             cmd_buffer,
             VkPipelineStageFlags::HOST,
             VkPipelineStageFlags::COMPUTE_SHADER,
@@ -284,7 +284,7 @@ fn main() {
         println!("✓ Pipeline barrier recorded");
         
         // 16. End command buffer
-        let result = kronos::vkEndCommandBuffer(cmd_buffer);
+        let result = kronos_compute::vkEndCommandBuffer(cmd_buffer);
         println!("✓ Command buffer recording ended: {:?}", result);
         
         // 17. Submit work
@@ -300,7 +300,7 @@ fn main() {
             pSignalSemaphores: ptr::null(),
         };
         
-        let result = kronos::implementation::device::vkQueueSubmit(
+        let result = kronos_compute::implementation::device::vkQueueSubmit(
             queue,
             1,
             &submit_info,
@@ -310,14 +310,14 @@ fn main() {
         println!("✓ Work submitted: {:?}", result);
         
         // 18. Wait for completion
-        let result = kronos::implementation::device::vkQueueWaitIdle(queue);
+        let result = kronos_compute::implementation::device::vkQueueWaitIdle(queue);
         println!("✓ Queue idle: {:?}", result);
         
         // Cleanup
-        kronos::implementation::buffer::vkDestroyBuffer(device, buffer, ptr::null());
-        kronos::implementation::memory::vkFreeMemory(device, memory, ptr::null());
-        kronos::implementation::device::vkDestroyDevice(device, ptr::null());
-        kronos::implementation::instance::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::implementation::buffer::vkDestroyBuffer(device, buffer, ptr::null());
+        kronos_compute::implementation::memory::vkFreeMemory(device, memory, ptr::null());
+        kronos_compute::implementation::device::vkDestroyDevice(device, ptr::null());
+        kronos_compute::implementation::instance::vkDestroyInstance(instance, ptr::null());
         
         println!("\n✓ All resources cleaned up");
         println!("\n🎉 Kronos Rust implementation test completed successfully!");

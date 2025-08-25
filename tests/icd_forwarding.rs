@@ -1,8 +1,8 @@
 //! ICD forwarding smoke tests - verifies real GPU dispatch
 
-use kronos::sys::*;
-use kronos::core::*;
-use kronos::implementation;
+use kronos_compute::sys::*;
+use kronos_compute::core::*;
+use kronos_compute::implementation;
 use std::ffi::CString;
 use std::ptr;
 
@@ -10,7 +10,7 @@ use std::ptr;
 fn test_icd_discovery() {
     unsafe {
         // Initialize Kronos with ICD forwarding
-        let result = kronos::initialize_kronos();
+        let result = kronos_compute::initialize_kronos();
         assert!(result.is_ok(), "Failed to initialize Kronos ICD loader: {:?}", result);
         
         // Check that we have function pointers
@@ -24,7 +24,7 @@ fn test_icd_discovery() {
 fn test_real_gpu_dispatch() {
     unsafe {
         // Initialize
-        kronos::initialize_kronos().expect("Failed to initialize Kronos");
+        kronos_compute::initialize_kronos().expect("Failed to initialize Kronos");
         
         // Create instance
         let app_name = CString::new("ICD Test").unwrap();
@@ -50,24 +50,24 @@ fn test_real_gpu_dispatch() {
         };
         
         let mut instance = VkInstance::NULL;
-        let result = kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        let result = kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         assert_eq!(result, VkResult::Success, "Failed to create instance");
         assert!(!instance.is_null(), "Instance is null");
         
         // Find physical device
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         assert!(device_count > 0, "No physical devices found");
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
         let physical_device = devices[0];
         assert!(!physical_device.is_null(), "Physical device is null");
         
         // Get device properties to verify vendor
         let mut props: VkPhysicalDeviceProperties = std::mem::zeroed();
-        kronos::vkGetPhysicalDeviceProperties(physical_device, &mut props);
+        kronos_compute::vkGetPhysicalDeviceProperties(physical_device, &mut props);
         
         let vendor = match props.vendorID {
             0x1002 => "AMD",
@@ -80,10 +80,10 @@ fn test_real_gpu_dispatch() {
         
         // Find compute queue
         let mut queue_family_count = 0;
-        kronos::vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &mut queue_family_count, ptr::null_mut());
+        kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &mut queue_family_count, ptr::null_mut());
         
         let mut queue_families = vec![std::mem::zeroed::<VkQueueFamilyProperties>(); queue_family_count as usize];
-        kronos::vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &mut queue_family_count, queue_families.as_mut_ptr());
+        kronos_compute::vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &mut queue_family_count, queue_families.as_mut_ptr());
         
         let compute_queue_family = queue_families.iter()
             .position(|f| f.queueFlags.contains(VkQueueFlags::COMPUTE))
@@ -114,12 +114,12 @@ fn test_real_gpu_dispatch() {
         };
         
         let mut device = VkDevice::NULL;
-        let result = kronos::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
+        let result = kronos_compute::vkCreateDevice(physical_device, &device_info, ptr::null(), &mut device);
         assert_eq!(result, VkResult::Success, "Failed to create device");
         
         // Get queue
         let mut queue = VkQueue::NULL;
-        kronos::vkGetDeviceQueue(device, compute_queue_family, 0, &mut queue);
+        kronos_compute::vkGetDeviceQueue(device, compute_queue_family, 0, &mut queue);
         assert!(!queue.is_null(), "Queue is null");
         
         // Create command pool
@@ -131,7 +131,7 @@ fn test_real_gpu_dispatch() {
         };
         
         let mut command_pool = VkCommandPool::NULL;
-        kronos::vkCreateCommandPool(device, &pool_info, ptr::null(), &mut command_pool);
+        kronos_compute::vkCreateCommandPool(device, &pool_info, ptr::null(), &mut command_pool);
         
         // Allocate command buffer
         let alloc_info = VkCommandBufferAllocateInfo {
@@ -143,7 +143,7 @@ fn test_real_gpu_dispatch() {
         };
         
         let mut cmd_buffer = VkCommandBuffer::NULL;
-        kronos::vkAllocateCommandBuffers(device, &alloc_info, &mut cmd_buffer);
+        kronos_compute::vkAllocateCommandBuffers(device, &alloc_info, &mut cmd_buffer);
         
         // Record empty command buffer
         let begin_info = VkCommandBufferBeginInfo {
@@ -153,9 +153,9 @@ fn test_real_gpu_dispatch() {
             pInheritanceInfo: ptr::null(),
         };
         
-        kronos::vkBeginCommandBuffer(cmd_buffer, &begin_info);
+        kronos_compute::vkBeginCommandBuffer(cmd_buffer, &begin_info);
         // Empty dispatch - just testing submission works
-        kronos::vkEndCommandBuffer(cmd_buffer);
+        kronos_compute::vkEndCommandBuffer(cmd_buffer);
         
         // Submit
         let submit_info = VkSubmitInfo {
@@ -170,15 +170,15 @@ fn test_real_gpu_dispatch() {
             pSignalSemaphores: ptr::null(),
         };
         
-        let result = kronos::vkQueueSubmit(queue, 1, &submit_info, VkFence::NULL);
+        let result = kronos_compute::vkQueueSubmit(queue, 1, &submit_info, VkFence::NULL);
         assert_eq!(result, VkResult::Success, "Failed to submit");
         
-        kronos::vkQueueWaitIdle(queue);
+        kronos_compute::vkQueueWaitIdle(queue);
         
         // Cleanup
-        kronos::vkDestroyCommandPool(device, command_pool, ptr::null());
-        kronos::vkDestroyDevice(device, ptr::null());
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyCommandPool(device, command_pool, ptr::null());
+        kronos_compute::vkDestroyDevice(device, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
         
         println!("✓ ICD forwarding test passed - real GPU dispatch successful!");
     }
@@ -187,7 +187,7 @@ fn test_real_gpu_dispatch() {
 #[test]
 fn test_vendor_detection() {
     unsafe {
-        kronos::initialize_kronos().expect("Failed to initialize");
+        kronos_compute::initialize_kronos().expect("Failed to initialize");
         
         let app_name = CString::new("Vendor Test").unwrap();
         let app_info = VkApplicationInfo {
@@ -212,18 +212,18 @@ fn test_vendor_detection() {
         };
         
         let mut instance = VkInstance::NULL;
-        kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         
         if device_count > 0 {
             let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-            kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+            kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
             
             for device in devices {
                 let mut props: VkPhysicalDeviceProperties = std::mem::zeroed();
-                kronos::vkGetPhysicalDeviceProperties(device, &mut props);
+                kronos_compute::vkGetPhysicalDeviceProperties(device, &mut props);
                 
                 let vendor = implementation::barrier_policy::GpuVendor::from_vendor_id(props.vendorID);
                 println!("Device: {} (0x{:04X}) -> {:?}", 
@@ -241,6 +241,6 @@ fn test_vendor_detection() {
             }
         }
         
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
     }
 }

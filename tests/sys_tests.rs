@@ -1,6 +1,6 @@
 //! Tests for the sys module
 
-use kronos::sys::*;
+use kronos_compute::sys::*;
 
 #[test]
 fn test_handle_null() {

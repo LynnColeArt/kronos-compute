@@ -1,8 +1,8 @@
 //! AMD-specific performance validation example
 
-use kronos::sys::*;
-use kronos::core::*;
-use kronos::implementation;
+use kronos_compute::sys::*;
+use kronos_compute::core::*;
+use kronos_compute::implementation;
 use std::ffi::CString;
 use std::ptr;
 use std::time::Instant;
@@ -20,7 +20,7 @@ fn main() {
     
     unsafe {
         // Initialize Kronos
-        if let Err(e) = kronos::initialize_kronos() {
+        if let Err(e) = kronos_compute::initialize_kronos() {
             eprintln!("Failed to initialize Kronos: {:?}", e);
             eprintln!("\nMake sure AMD GPU is available and drivers are installed.");
             eprintln!("Try: export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json");
@@ -51,27 +51,27 @@ fn main() {
         };
         
         let mut instance = VkInstance::NULL;
-        kronos::vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        kronos_compute::vkCreateInstance(&create_info, ptr::null(), &mut instance);
         
         // Find AMD GPU
         let mut device_count = 0;
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
         
         if device_count == 0 {
             eprintln!("No Vulkan devices found!");
-            kronos::vkDestroyInstance(instance, ptr::null());
+            kronos_compute::vkDestroyInstance(instance, ptr::null());
             return;
         }
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        kronos::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        kronos_compute::vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
         let mut amd_device = None;
         let mut device_name = String::new();
         
         for device in &devices {
             let mut props: VkPhysicalDeviceProperties = std::mem::zeroed();
-            kronos::vkGetPhysicalDeviceProperties(*device, &mut props);
+            kronos_compute::vkGetPhysicalDeviceProperties(*device, &mut props);
             
             let name_bytes: Vec<u8> = props.deviceName.iter()
                 .take_while(|&&c| c != 0)
@@ -167,7 +167,7 @@ fn main() {
         println!("  ✓ Reduced barrier overhead");
         println!("  ✓ Optimized for GCN/RDNA architectures");
         
-        kronos::vkDestroyInstance(instance, ptr::null());
+        kronos_compute::vkDestroyInstance(instance, ptr::null());
         
         println!("\n✓ AMD validation complete!");
     }

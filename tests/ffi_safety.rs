@@ -1,6 +1,6 @@
 //! FFI safety tests - ensures bitflags are properly repr(C) or repr(transparent)
 
-use kronos::core::flags::*;
+use kronos_compute::core::flags::*;
 use std::mem;
 
 // Macro to test that a type is FFI-safe
