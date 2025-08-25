@@ -45,12 +45,12 @@ impl std::ops::BitOr for BufferUsage {
 /// Buffers are automatically freed when dropped and use the
 /// pool allocator for efficient memory management.
 pub struct Buffer {
-    context: ComputeContext,
-    buffer: VkBuffer,
-    memory: VkDeviceMemory,
-    size: usize,
-    usage: BufferUsage,
-    _marker: PhantomData<*const u8>,
+    pub(super) context: ComputeContext,
+    pub(super) buffer: VkBuffer,
+    pub(super) memory: VkDeviceMemory,
+    pub(super) size: usize,
+    pub(super) usage: BufferUsage,
+    pub(super) _marker: PhantomData<*const u8>,
 }
 
 // Send + Sync for thread safety
@@ -138,7 +138,7 @@ impl ComputeContext {
             let buffer_info = VkBufferCreateInfo {
                 sType: VkStructureType::BufferCreateInfo,
                 pNext: ptr::null(),
-                flags: 0,
+                flags: VkBufferCreateFlags::empty(),
                 size: size as VkDeviceSize,
                 usage: usage.flags,
                 sharingMode: VkSharingMode::Exclusive,
@@ -212,7 +212,7 @@ impl ComputeContext {
     ) -> Result<u32> {
         for i in 0..memory_properties.memoryTypeCount {
             if (type_filter & (1 << i)) != 0 
-                && (memory_properties.memoryTypes[i as usize].propertyFlags & properties.bits()) == properties.bits() {
+                && memory_properties.memoryTypes[i as usize].propertyFlags.contains(properties) {
                 return Ok(i);
             }
         }
@@ -346,11 +346,3 @@ impl Drop for Buffer {
     }
 }
 
-// Clone for ComputeContext (just clones the Arc)
-impl Clone for ComputeContext {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}

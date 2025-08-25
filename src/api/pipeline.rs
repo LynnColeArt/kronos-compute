@@ -19,10 +19,10 @@ unsafe impl Sync for Shader {}
 
 /// Compute pipeline with shader and layout
 pub struct Pipeline {
-    context: ComputeContext,
-    pipeline: VkPipeline,
-    layout: VkPipelineLayout,
-    descriptor_set_layout: VkDescriptorSetLayout,
+    pub(super) context: ComputeContext,
+    pub(super) pipeline: VkPipeline,
+    pub(super) layout: VkPipelineLayout,
+    pub(super) descriptor_set_layout: VkDescriptorSetLayout,
 }
 
 // Send + Sync for thread safety  
@@ -189,8 +189,8 @@ impl ComputeContext {
                 let stage_info = VkPipelineShaderStageCreateInfo {
                     sType: VkStructureType::PipelineShaderStageCreateInfo,
                     pNext: ptr::null(),
-                    flags: 0,
-                    stage: VkShaderStageFlags::COMPUTE,
+                    flags: VkPipelineShaderStageCreateFlags::empty(),
+                    stage: VkShaderStageFlagBits::Compute,
                     module: shader.module,
                     pName: entry_point.as_ptr(),
                     pSpecializationInfo: ptr::null(),
@@ -199,7 +199,7 @@ impl ComputeContext {
                 let pipeline_info = VkComputePipelineCreateInfo {
                     sType: VkStructureType::ComputePipelineCreateInfo,
                     pNext: ptr::null(),
-                    flags: 0,
+                    flags: VkPipelineCreateFlags::empty(),
                     stage: stage_info,
                     layout: pipeline_layout,
                     basePipelineHandle: VkPipeline::NULL,

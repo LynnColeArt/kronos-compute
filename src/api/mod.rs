@@ -17,8 +17,8 @@ pub mod command;
 pub mod sync;
 
 pub use context::ComputeContext;
-pub use buffer::Buffer;
-pub use pipeline::{Pipeline, Shader};
+pub use buffer::{Buffer, BufferUsage};
+pub use pipeline::{Pipeline, Shader, PipelineConfig, BufferBinding};
 pub use command::CommandBuilder;
 pub use sync::{Fence, Semaphore};
 

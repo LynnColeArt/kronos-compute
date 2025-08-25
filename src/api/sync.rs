@@ -32,7 +32,7 @@ impl ComputeContext {
                 let create_info = VkFenceCreateInfo {
                     sType: VkStructureType::FenceCreateInfo,
                     pNext: ptr::null(),
-                    flags: if signaled { VkFenceCreateFlags::SIGNALED } else { 0 },
+                    flags: if signaled { VkFenceCreateFlags::SIGNALED } else { VkFenceCreateFlags::empty() },
                 };
                 
                 let mut fence = VkFence::NULL;

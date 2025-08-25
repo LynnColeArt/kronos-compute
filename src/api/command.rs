@@ -164,9 +164,9 @@ impl CommandBuilder {
                 if !barriers.is_empty() {
                     vkCmdPipelineBarrier(
                         self.command_buffer,
-                        VkPipelineStageFlags::TRANSFER,
+                        VkPipelineStageFlags::TOP_OF_PIPE,
                         VkPipelineStageFlags::COMPUTE_SHADER,
-                        0,
+                        VkDependencyFlags::empty(),
                         0,
                         ptr::null(),
                         barriers.len() as u32,
@@ -177,13 +177,13 @@ impl CommandBuilder {
                 }
                 
                 // Bind pipeline
-                vkCmdBindPipeline(self.command_buffer, VkPipelineBindPoint::COMPUTE, self.pipeline.pipeline);
+                vkCmdBindPipeline(self.command_buffer, VkPipelineBindPoint::Compute, self.pipeline.pipeline);
                 
                 // Bind descriptor set
                 if let Some(descriptor_set) = self.descriptor_set {
                     vkCmdBindDescriptorSets(
                         self.command_buffer,
-                        VkPipelineBindPoint::COMPUTE,
+                        VkPipelineBindPoint::Compute,
                         self.pipeline.layout,
                         0,
                         1,

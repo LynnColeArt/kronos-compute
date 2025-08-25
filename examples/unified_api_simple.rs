@@ -3,7 +3,7 @@
 //! This demonstrates how much simpler the unified API is compared
 //! to the raw Vulkan-style API.
 
-use kronos_compute::api::{self, ComputeContext, PipelineConfig, BufferBinding};
+use kronos_compute::api::{ComputeContext, PipelineConfig, BufferBinding};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Kronos Unified API Example");

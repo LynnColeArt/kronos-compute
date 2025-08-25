@@ -8,20 +8,20 @@ use std::ptr;
 use std::sync::{Arc, Mutex};
 
 /// Internal state for ComputeContext
-struct ContextInner {
-    instance: VkInstance,
-    physical_device: VkPhysicalDevice,
-    device: VkDevice,
-    queue: VkQueue,
-    queue_family_index: u32,
+pub(super) struct ContextInner {
+    pub(super) instance: VkInstance,
+    pub(super) physical_device: VkPhysicalDevice,
+    pub(super) device: VkDevice,
+    pub(super) queue: VkQueue,
+    pub(super) queue_family_index: u32,
     
     // Optimization managers
-    descriptor_pool: VkDescriptorPool,
-    command_pool: VkCommandPool,
+    pub(super) descriptor_pool: VkDescriptorPool,
+    pub(super) command_pool: VkCommandPool,
     
     // Device properties
-    device_properties: VkPhysicalDeviceProperties,
-    memory_properties: VkPhysicalDeviceMemoryProperties,
+    pub(super) device_properties: VkPhysicalDeviceProperties,
+    pub(super) memory_properties: VkPhysicalDeviceMemoryProperties,
 }
 
 /// Main context for compute operations
@@ -29,8 +29,9 @@ struct ContextInner {
 /// This is the primary entry point for the Kronos Compute API.
 /// It manages the Vulkan instance, device, and queue, and provides
 /// methods to create buffers, pipelines, and execute commands.
+#[derive(Clone)]
 pub struct ComputeContext {
-    inner: Arc<Mutex<ContextInner>>,
+    pub(super) inner: Arc<Mutex<ContextInner>>,
 }
 
 // Send + Sync for thread safety
@@ -146,11 +147,16 @@ impl ComputeContext {
         let mut queue_family_count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_family_count, ptr::null_mut());
         
-        let mut queue_families = vec![VkQueueFamilyProperties::default(); queue_family_count as usize];
+        let mut queue_families = vec![VkQueueFamilyProperties {
+            queueFlags: VkQueueFlags::empty(),
+            queueCount: 0,
+            timestampValidBits: 0,
+            minImageTransferGranularity: VkExtent3D { width: 0, height: 0, depth: 0 },
+        }; queue_family_count as usize];
         vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_family_count, queue_families.as_mut_ptr());
         
         for (index, family) in queue_families.iter().enumerate() {
-            if family.queueFlags & VkQueueFlags::COMPUTE.bits() != 0 {
+            if family.queueFlags.contains(VkQueueFlags::COMPUTE) {
                 return Ok(Some(index as u32));
             }
         }
