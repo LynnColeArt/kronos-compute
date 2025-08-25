@@ -20,7 +20,15 @@ Kronos Compute is a streamlined Vulkan implementation that removes all graphics 
 
 ## 🎯 Key Features
 
-### 1. **Advanced Optimizations**
+### 1. **Safe Unified API** 🆕
+
+- Zero unsafe code required
+- Automatic resource management (RAII)
+- Builder patterns and fluent interfaces
+- Type-safe abstractions
+- All optimizations work transparently
+
+### 2. **Advanced Optimizations**
 
 #### Persistent Descriptors
 - Set0 reserved for storage buffers with zero updates in hot path
@@ -42,15 +50,13 @@ Kronos Compute is a streamlined Vulkan implementation that removes all graphics 
 - Slab-based sub-allocation with 256MB slabs
 - Power-of-2 block sizes for O(1) allocation/deallocation
 
-### 2. **Type-Safe Rust API**
-```rust
-pub struct Handle<T> {
-    raw: u64,
-    _marker: PhantomData<*const T>,
-}
-```
+### 3. **Type-Safe Implementation**
+- Safe handles with phantom types
+- Proper error handling with Result types
+- Zero-cost abstractions
+- Memory safety guarantees
 
-### 3. **Optimized Structures**
+### 4. **Optimized Structures**
 - `VkPhysicalDeviceFeatures`: 32 bytes (vs 220 in standard Vulkan)
 - `VkBufferCreateInfo`: Reordered fields for better packing
 - `VkMemoryTypeCache`: O(1) memory type lookups
@@ -147,33 +153,46 @@ cargo bench --bench compute_workloads -- --warm-up-time 5 --measurement-time 10
 
 ## 🚀 Usage Example
 
+### Safe Unified API (Recommended)
+
+```rust
+use kronos_compute::api::{ComputeContext, PipelineConfig, BufferBinding};
+
+// No unsafe code needed!
+let ctx = ComputeContext::new()?;
+
+// Load shader and create pipeline
+let shader = ctx.load_shader("compute.spv")?;
+let pipeline = ctx.create_pipeline(&shader)?;
+
+// Create buffers
+let input = ctx.create_buffer(&data)?;
+let output = ctx.create_buffer_uninit(size)?;
+
+// Dispatch compute work
+ctx.dispatch(&pipeline)
+    .bind_buffer(0, &input)
+    .bind_buffer(1, &output)
+    .workgroups(1024, 1, 1)
+    .execute()?;
+
+// Read results
+let results: Vec<f32> = output.read()?;
+```
+
+All optimizations work transparently through the safe API!
+
+### Low-Level FFI (Advanced)
+
 ```rust
 use kronos_compute::*;
 
 unsafe {
-    // Initialize Kronos with ICD forwarding
+    // Traditional Vulkan-style API also available
     initialize_kronos()?;
-    
-    // Create instance
-    let app_info = VkApplicationInfo {
-        pApplicationName: b"MyCompute\0".as_ptr() as *const i8,
-        apiVersion: VK_API_VERSION_1_0,
-        ..Default::default()
-    };
-    
-    let create_info = VkInstanceCreateInfo {
-        pApplicationInfo: &app_info,
-        ..Default::default()
-    };
-    
     let mut instance = VkInstance::NULL;
     vkCreateInstance(&create_info, ptr::null(), &mut instance);
-    
-    // The optimizations work transparently:
-    // - Persistent descriptors eliminate updates
-    // - Smart barriers minimize synchronization
-    // - Timeline batching reduces CPU overhead
-    // - Pool allocator prevents allocation stalls
+    // ... etc
 }
 ```
 
@@ -255,6 +274,9 @@ kronos::BatchBuilder::new(queue)
 
 Comprehensive documentation is available in the `docs/` directory:
 
+- **API Documentation**:
+  - [Unified Safe API](docs/UNIFIED_API.md) - 🆕 Safe, ergonomic Rust API (recommended)
+  
 - **Architecture**: Design decisions, optimization details, and comparisons
   - [Optimization Summary](docs/architecture/OPTIMIZATION_SUMMARY.md) - Mini's 4 optimizations explained
   - [Vulkan Comparison](docs/architecture/VULKAN_COMPARISON.md) - Differences from standard Vulkan
@@ -311,8 +333,9 @@ All unsafe functions include comprehensive safety documentation.
 - ✅ Published to crates.io (v0.1.0)
 - ✅ C header generation
 - ✅ SPIR-V shader build scripts
-- ⏳ Safe wrapper API
+- ✅ Safe unified API (NEW!)
 - ⏳ Production testing
+- ⏳ Compute correctness fixes needed
 
 ## 🗺️ Roadmap
 

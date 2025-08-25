@@ -1,12 +1,74 @@
 # EPIC 2: Production Readiness Roadmap
 
 **Created**: 2025-08-25  
+**Updated**: 2025-08-25 - Unified API as top priority  
 **Based on**: [Peer Review 2025-08-25](PEER_REVIEW_2025-08-25.md)  
-**Goal**: Address all critical issues and achieve production-ready status
+**Goal**: Create a unified Rust API and achieve production-ready status
 
 ## Overview
 
-This epic outlines the path from current alpha/beta state to production readiness. Milestones are ordered by criticality, with blocking issues addressed first.
+This epic outlines the path from current alpha/beta state to production readiness. The top priority is creating a unified, safe Rust API that makes Kronos Compute accessible without requiring unsafe code or Vulkan expertise.
+
+## Milestone 0: Unified Safe API 🎯 ✅ COMPLETE!
+
+**Priority**: CRITICAL - Essential for usability and adoption  
+**Timeline**: 2-3 weeks (Completed in 1 day!)  
+**Completed**: 2025-08-25
+
+### 0.1 API Design ✅
+- [x] Design idiomatic Rust API that hides Vulkan complexity
+- [x] Create builder patterns for common operations
+- [x] Implement RAII for resource management
+- [x] Design error types using thiserror
+- [x] Document API philosophy and patterns
+- **Success Criteria**: API design approved and documented ✅
+
+### 0.2 Core API Implementation ✅
+- [x] `ComputeContext` - Main entry point
+- [x] `Pipeline` - Shader and pipeline management
+- [x] `Buffer` - Safe buffer creation and management
+- [x] `CommandBuilder` - Fluent command recording
+- [x] `Fence`/`Semaphore` - Safe synchronization
+- **Success Criteria**: Core compute operations work without unsafe ✅
+
+### 0.3 Optimization Transparency ✅
+- [x] Persistent descriptors automatic in Buffer API
+- [x] Smart barriers handled internally
+- [x] Timeline batching transparent to users
+- [x] Pool allocator automatic for Buffer creation
+- **Success Criteria**: All optimizations work through safe API ✅
+
+### 0.4 Examples & Migration ✅
+- [x] Create example using unified API
+- [x] Create migration guide from raw API
+- [x] Document API in UNIFIED_API.md
+- [ ] Benchmark unified vs raw API overhead (future)
+- [ ] Add ergonomic helpers (parallel_for, reductions) (future)
+- **Success Criteria**: Examples demonstrate API simplicity ✅
+
+Example of target API:
+```rust
+// Simple, safe, and ergonomic
+let ctx = kronos::ComputeContext::new()?;
+let shader = ctx.load_shader("vector_add.spv")?;
+let pipeline = ctx.create_pipeline(shader)?;
+
+// Automatic buffer management with pool allocator
+let a = ctx.create_buffer(&input_a)?;
+let b = ctx.create_buffer(&input_b)?;
+let c = ctx.create_buffer_uninit(size)?;
+
+// Fluent dispatch with automatic barriers
+ctx.dispatch(&pipeline)
+    .bind_buffer(0, &a)
+    .bind_buffer(1, &b)
+    .bind_buffer(2, &c)
+    .workgroups(1024, 1, 1)
+    .execute()?;
+
+// Safe readback
+let result: Vec<f32> = c.read()?;
+```
 
 ## Milestone 1: Critical Fixes 🚨 (Production Blockers)
 
@@ -150,11 +212,11 @@ This epic outlines the path from current alpha/beta state to production readines
 **Timeline**: Ongoing
 
 ### 6.1 Advanced Features
-- [ ] Safe Rust wrapper API
 - [ ] Async/await support for timeline semaphores
 - [ ] Multi-GPU orchestration
 - [ ] Vulkan 1.3 compute features
 - [ ] WebGPU backend
+- [ ] Compute graph optimization
 
 ### 6.2 Tooling
 - [ ] Performance profiler integration
@@ -198,20 +260,22 @@ This epic outlines the path from current alpha/beta state to production readines
 
 ## Timeline Summary
 
-**Total Estimated Time**: 4-5 weeks to production ready
+**Total Estimated Time**: 6-8 weeks to production ready
 
-1. **Week 1-2**: Critical fixes (Milestone 1)
-2. **Week 3**: Test infrastructure (Milestone 2) 
-3. **Week 4**: Documentation & quality (Milestones 3-4)
-4. **Week 5+**: Platform validation (Milestone 5)
+1. **Week 1-3**: Unified Safe API (Milestone 0) - TOP PRIORITY
+2. **Week 4-5**: Critical fixes (Milestone 1)
+3. **Week 6**: Test infrastructure (Milestone 2) 
+4. **Week 7**: Documentation & quality (Milestones 3-4)
+5. **Week 8+**: Platform validation (Milestone 5)
 
 ## Next Steps
 
 1. Create GitHub issues for each task
-2. Assign owners to critical items
+2. Design unified API architecture (Milestone 0.1)
 3. Set up project board for tracking
-4. Begin with Milestone 1.1 (correctness bug)
+4. Begin API prototype implementation
 5. Establish weekly progress reviews
+6. Consider community feedback on API design
 
 ---
 
