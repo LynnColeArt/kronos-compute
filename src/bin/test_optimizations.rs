@@ -1,6 +1,7 @@
 //! Quick test to verify optimizations are working
 
-use kronos::*;
+use kronos_compute::*;
+use kronos_compute::implementation::initialize_kronos;
 use std::ptr;
 use std::time::Instant;
 
