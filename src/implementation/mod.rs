@@ -18,6 +18,9 @@ pub mod barrier_policy;
 pub mod timeline_batching;
 pub mod pool_allocator;
 
+#[cfg(test)]
+mod tests;
+
 // Re-export all implementation functions
 pub use instance::*;
 pub use device::*;

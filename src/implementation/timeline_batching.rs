@@ -344,6 +344,16 @@ impl BatchBuilder {
         self
     }
     
+    /// Get the number of command buffers in the batch
+    pub fn len(&self) -> usize {
+        self.command_buffers.len()
+    }
+    
+    /// Check if the batch is empty
+    pub fn is_empty(&self) -> bool {
+        self.command_buffers.is_empty()
+    }
+    
     /// Submit the batch
     ///
     /// # Safety
@@ -408,6 +418,7 @@ mod tests {
             .add_command_buffer(cb1)
             .add_command_buffer(cb2);
         
-        assert_eq!(builder.command_buffers.len(), 2);
+        assert_eq!(builder.len(), 2);
+        assert!(!builder.is_empty());
     }
 }

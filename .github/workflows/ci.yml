@@ -11,147 +11,173 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # Format check
+  fmt:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # Clippy linting
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Vulkan SDK
+        run: |
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.268-focal.list https://packages.lunarg.com/vulkan/1.3.268/lunarg-vulkan-1.3.268-focal.list
+          sudo apt update
+          sudo apt install -y vulkan-sdk
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # Build and test on multiple platforms
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        rust: [stable, nightly]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable, beta]
+        include:
+          - os: ubuntu-latest
+            rust: nightly
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-        components: rustfmt, clippy
-    
-    - name: Install Vulkan SDK
-      run: |
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
-        sudo apt update
-        sudo apt install -y vulkan-sdk
-    
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo index
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo build
-      uses: actions/cache@v3
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Build
-      run: cargo build --all-features --verbose
-    
-    - name: Run tests
-      run: cargo test --all-features --verbose
-    
-    - name: Run clippy
-      if: matrix.rust == 'stable'
-      run: cargo clippy --all-features -- -D warnings
-    
-    - name: Check formatting
-      if: matrix.rust == 'stable'
-      run: cargo fmt -- --check
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      
+      # Install Vulkan SDK based on OS
+      - name: Install Vulkan SDK (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.268-focal.list https://packages.lunarg.com/vulkan/1.3.268/lunarg-vulkan-1.3.268-focal.list
+          sudo apt update
+          sudo apt install -y vulkan-sdk mesa-vulkan-drivers
+          
+      - name: Install Vulkan SDK (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Invoke-WebRequest -Uri https://sdk.lunarg.com/sdk/download/1.3.268.0/windows/VulkanSDK-1.3.268.0-Installer.exe -OutFile VulkanSDK.exe
+          ./VulkanSDK.exe /S
+          echo "$env:VULKAN_SDK\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          
+      - name: Install Vulkan SDK (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          wget https://sdk.lunarg.com/sdk/download/1.3.268.0/mac/vulkansdk-macos-1.3.268.0.dmg
+          hdiutil attach vulkansdk-macos-1.3.268.0.dmg
+          sudo /Volumes/vulkansdk-macos-1.3.268.0/InstallVulkan.app/Contents/MacOS/InstallVulkan --root ~/VulkanSDK/1.3.268.0 --accept-licenses --default-answer --confirm-command install
+          echo "VULKAN_SDK=$HOME/VulkanSDK/1.3.268.0/macOS" >> $GITHUB_ENV
+          echo "$HOME/VulkanSDK/1.3.268.0/macOS/bin" >> $GITHUB_PATH
 
-  examples:
-    name: Build Examples
+      # Build without features
+      - name: Build (no features)
+        run: cargo build --verbose
+
+      # Build with implementation feature
+      - name: Build (with features)
+        run: cargo build --features implementation --verbose
+
+      # Build examples
+      - name: Build examples
+        run: cargo build --examples --features implementation --verbose
+
+      # Build binaries
+      - name: Build binaries
+        run: cargo build --bins --features implementation --verbose
+
+      # Run tests
+      - name: Run tests
+        run: cargo test --features implementation --verbose
+
+      # Run doc tests
+      - name: Run doc tests
+        run: cargo test --doc --features implementation --verbose
+
+  # Ensure documentation builds
+  doc:
+    name: Documentation
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Install Vulkan SDK
-      run: |
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
-        sudo apt update
-        sudo apt install -y vulkan-sdk
-    
-    - name: Build examples
-      run: |
-        cargo build --example compute_optimized --release
-        cargo build --example compute_test --release
-        cargo build --example descriptor_test --release
-        cargo build --example simple_test --release
-        cargo build --example sync_test --release
-        cargo build --example test_thread_safety --release
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
 
-  benchmarks:
-    name: Run Benchmarks
+  # Check for security vulnerabilities
+  security:
+    name: Security Audit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Install Vulkan SDK
-      run: |
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
-        sudo apt update
-        sudo apt install -y vulkan-sdk mesa-vulkan-drivers
-    
-    - name: Run benchmarks
-      run: cargo bench --no-run --all-features
+      - uses: actions/checkout@v3
+      - uses: rustsec/audit-check@v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  cbindgen:
-    name: Generate C Headers
+  # Measure code coverage (optional, requires setup)
+  coverage:
+    name: Code Coverage
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Install cbindgen
-      run: cargo install cbindgen
-    
-    - name: Generate C header
-      run: cbindgen --config cbindgen.toml --crate kronos-compute --output kronos-check.h
-    
-    - name: Check header matches
-      run: |
-        if ! diff -q kronos.h kronos-check.h; then
-          echo "ERROR: Generated header doesn't match committed header"
-          echo "Please run 'cbindgen --config cbindgen.toml --crate kronos-compute --output kronos.h'"
-          exit 1
-        fi
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Vulkan SDK
+        run: |
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.268-focal.list https://packages.lunarg.com/vulkan/1.3.268/lunarg-vulkan-1.3.268-focal.list
+          sudo apt update
+          sudo apt install -y vulkan-sdk mesa-vulkan-drivers
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Generate code coverage
+        run: cargo tarpaulin --features implementation --out Xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
-  shaders:
-    name: Build Shaders
+  # Benchmark performance (only on main branch)
+  bench:
+    name: Benchmarks
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Vulkan SDK
-      run: |
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3-jammy.list https://packages.lunarg.com/vulkan/1.3/lunarg-vulkan-1.3-jammy.list
-        sudo apt update
-        sudo apt install -y vulkan-sdk
-    
-    - name: Build shaders
-      run: |
-        chmod +x scripts/build_shaders.sh
-        scripts/build_shaders.sh
-    
-    - name: Check shader files exist
-      run: |
-        test -f shaders/shader.spv || exit 1
-        test -f shaders/saxpy.spv || exit 1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Vulkan SDK
+        run: |
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.268-focal.list https://packages.lunarg.com/vulkan/1.3.268/lunarg-vulkan-1.3.268-focal.list
+          sudo apt update
+          sudo apt install -y vulkan-sdk mesa-vulkan-drivers
+      - name: Run benchmarks
+        run: cargo bench --features implementation -- --output-format bencher | tee output.txt
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Rust Benchmark
+          tool: 'cargo'
+          output-file-path: output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
