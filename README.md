@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 1 (v0.1.6-rc1): Major ICD loader improvements! Kronos now properly discovers and prioritizes hardware Vulkan drivers (AMD, NVIDIA, Intel) over software renderers. No more manual VK_ICD_FILENAMES workarounds needed!**
+> **📦 Release Candidate 2 (v0.1.6-rc2): Further ICD improvements! VK_ICD_FILENAMES is now properly treated as an override (not exclusive), and Kronos discovers ALL available drivers for intelligent fallback. Full user control when needed, smart defaults when not!**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)

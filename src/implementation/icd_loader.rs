@@ -196,18 +196,26 @@ lazy_static::lazy_static! {
 /// Find and load Vulkan ICDs
 pub fn discover_icds() -> Vec<PathBuf> {
     let mut icd_files = Vec::new();
+    let mut env_icds = Vec::new();
     
-    // Check Vulkan SDK environment variable first (highest priority)
+    // Check environment variable - these will be prioritized but not exclusive
     if let Ok(icd_filenames) = env::var("VK_ICD_FILENAMES") {
         let separator = if cfg!(windows) { ';' } else { ':' };
         for path in icd_filenames.split(separator) {
-            icd_files.push(PathBuf::from(path));
+            let path = PathBuf::from(path);
+            if path.exists() {
+                env_icds.push(path.clone());
+                icd_files.push(path);
+            } else {
+                warn!("VK_ICD_FILENAMES contains non-existent path: {}", path.display());
+            }
         }
-        info!("Found {} ICD files from VK_ICD_FILENAMES", icd_files.len());
-        return icd_files;
+        if !env_icds.is_empty() {
+            info!("Found {} ICD files from VK_ICD_FILENAMES (will be prioritized)", env_icds.len());
+        }
     }
     
-    // Search platform-specific paths
+    // Always search platform-specific paths for all available ICDs
     let search_paths = get_icd_search_paths();
     for search_path in &search_paths {
         if let Ok(entries) = fs::read_dir(search_path) {
@@ -215,12 +223,15 @@ pub fn discover_icds() -> Vec<PathBuf> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                    icd_files.push(path);
-                    path_count += 1;
+                    // Skip if already added from environment variable
+                    if !env_icds.contains(&path) {
+                        icd_files.push(path);
+                        path_count += 1;
+                    }
                 }
             }
             if path_count > 0 {
-                info!("Found {} ICD manifest files in {}", path_count, search_path.display());
+                info!("Found {} additional ICD manifest files in {}", path_count, search_path.display());
             }
         }
     }
@@ -569,11 +580,19 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
     
     info!("Found {} ICD manifest files", icd_files.len());
     
-    // Collect all successfully loaded ICDs
+    // Check if we have environment variable override
+    let env_icd_count = if let Ok(icd_filenames) = env::var("VK_ICD_FILENAMES") {
+        let separator = if cfg!(windows) { ';' } else { ':' };
+        icd_filenames.split(separator).filter(|s| !s.is_empty()).count()
+    } else {
+        0
+    };
+    
+    // Collect all successfully loaded ICDs with priority flag
     let mut loaded_icds = Vec::new();
     
     // Try to load each ICD
-    for icd_file in icd_files {
+    for (idx, icd_file) in icd_files.iter().enumerate() {
         if let Some(manifest) = parse_icd_manifest(&icd_file) {
             let lib_path = if manifest.library_path.starts_with('/') {
                 PathBuf::from(&manifest.library_path)
@@ -591,10 +610,14 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
                                      lib_path.to_string_lossy().contains("swrast") ||
                                      lib_path.to_string_lossy().contains("llvmpipe");
                     
-                    let icd_type = if is_software { "software" } else { "hardware" };
-                    info!("Successfully loaded {} Vulkan ICD: {}", icd_type, lib_path.display());
+                    // Environment variable ICDs are prioritized (first N entries from discover_icds)
+                    let is_env_priority = idx < env_icd_count;
                     
-                    loaded_icds.push((icd, is_software));
+                    let icd_type = if is_software { "software" } else { "hardware" };
+                    let priority_str = if is_env_priority { " (VK_ICD_FILENAMES priority)" } else { "" };
+                    info!("Successfully loaded {} Vulkan ICD: {}{}", icd_type, lib_path.display(), priority_str);
+                    
+                    loaded_icds.push((icd, is_software, is_env_priority));
                 }
                 Err(e) => {
                     warn!("Failed to load ICD {}: {}", lib_path.display(), e);
@@ -607,18 +630,22 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
         return Err(IcdError::InvalidManifest("Failed to load any Vulkan ICD".to_string()));
     }
     
-    // Sort ICDs: hardware drivers first, then software renderers
-    loaded_icds.sort_by_key(|(_, is_software)| *is_software);
+    // Sort ICDs: env priority first, then hardware drivers, then software renderers
+    loaded_icds.sort_by_key(|(_, is_software, is_env_priority)| {
+        (!is_env_priority, *is_software)
+    });
     
     // Log all available ICDs
     info!("Available ICDs: {} hardware, {} software", 
-          loaded_icds.iter().filter(|(_, is_sw)| !is_sw).count(),
-          loaded_icds.iter().filter(|(_, is_sw)| *is_sw).count());
+          loaded_icds.iter().filter(|(_, is_sw, _)| !is_sw).count(),
+          loaded_icds.iter().filter(|(_, is_sw, _)| *is_sw).count());
     
     // Use the best ICD (first in sorted list)
-    let (best_icd, is_software) = loaded_icds.into_iter().next().unwrap();
+    let (best_icd, is_software, is_env_priority) = loaded_icds.into_iter().next().unwrap();
     
-    if is_software {
+    if is_env_priority {
+        info!("Using ICD specified by VK_ICD_FILENAMES: {}", best_icd.library_path.display());
+    } else if is_software {
         warn!("Using software renderer - no hardware Vulkan drivers found");
         info!("To use hardware drivers, ensure they are installed and ICD files are in /usr/share/vulkan/icd.d/");
     } else {

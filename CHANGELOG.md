@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6-rc2] - 2025-08-29
+
+### Changed
+- VK_ICD_FILENAMES environment variable is now treated as an override priority, not exclusive
+- ICD loader always discovers all available drivers for intelligent fallback
+- If VK_ICD_FILENAMES points to non-existent files, Kronos will fall back to discovered drivers
+
+### Improved
+- Better handling of user preferences while maintaining automatic driver discovery
+- Environment variable ICDs are prioritized but don't prevent fallback options
+
 ## [0.1.6-rc1] - 2025-08-29
 
 ### Fixed
@@ -84,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc1...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...HEAD
+[0.1.6-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc1...v0.1.6-rc2
 [0.1.6-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc3...v0.1.6-rc1
 [0.1.5-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc2...v0.1.5-rc3
 [0.1.5-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc1...v0.1.5-rc2
