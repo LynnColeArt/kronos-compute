@@ -645,8 +645,18 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
     if loaded_icds.is_empty() {
         return Err(IcdError::InvalidManifest("Failed to load any Vulkan ICD".to_string()));
     }
-    
-    // Sort ICDs: env priority first, then hardware drivers, then software renderers
+
+    // Optional policy: if any hardware ICDs are present, prefer them over software by filtering
+    let prefer_hardware = env::var("KRONOS_PREFER_HARDWARE").map(|v| v != "0").unwrap_or(true);
+    if prefer_hardware {
+        let any_hw = loaded_icds.iter().any(|(_, is_sw, _)| !*is_sw);
+        if any_hw {
+            loaded_icds.retain(|(_, is_sw, _)| !*is_sw);
+            info!("Hardware ICDs available; software ICDs will be ignored (set KRONOS_PREFER_HARDWARE=0 to disable)");
+        }
+    }
+
+    // Sort ICDs: env priority first, then hardware (already filtered if policy), then software renderers
     loaded_icds.sort_by_key(|(_, is_software, is_env_priority)| {
         (!is_env_priority, *is_software)
     });
