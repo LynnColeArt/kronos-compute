@@ -58,6 +58,18 @@ impl ComputeContext {
             let mut memory_properties = VkPhysicalDeviceMemoryProperties::default();
             vkGetPhysicalDeviceMemoryProperties(physical_device, &mut memory_properties);
             
+            // Log selected device info
+            let device_name = std::ffi::CStr::from_ptr(device_properties.deviceName.as_ptr())
+                .to_string_lossy();
+            let device_type_str = match device_properties.deviceType {
+                VkPhysicalDeviceType::DiscreteGpu => "Discrete GPU",
+                VkPhysicalDeviceType::IntegratedGpu => "Integrated GPU",
+                VkPhysicalDeviceType::VirtualGpu => "Virtual GPU",
+                VkPhysicalDeviceType::Cpu => "CPU (Software Renderer)",
+                _ => "Unknown",
+            };
+            log::info!("Selected Vulkan device: {} ({})", device_name, device_type_str);
+            
             // Create logical device
             let (device, queue) = Self::create_device(physical_device, queue_family_index)?;
             
@@ -150,15 +162,39 @@ impl ComputeContext {
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
         vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
         
-        // Find first device with compute queue
+        // Collect all devices with compute support and their properties
+        let mut candidates = Vec::new();
+        
         for device in devices {
             let queue_family = Self::find_compute_queue_family(device)?;
             if let Some(index) = queue_family {
-                return Ok((device, index));
+                // Get device properties to determine device type
+                let mut properties = VkPhysicalDeviceProperties::default();
+                vkGetPhysicalDeviceProperties(device, &mut properties);
+                
+                candidates.push((device, index, properties.deviceType));
             }
         }
         
-        Err(KronosError::DeviceNotFound)
+        if candidates.is_empty() {
+            return Err(KronosError::DeviceNotFound);
+        }
+        
+        // Sort by device type preference: DiscreteGpu > IntegratedGpu > VirtualGpu > Cpu
+        candidates.sort_by_key(|(_, _, device_type)| {
+            match *device_type {
+                VkPhysicalDeviceType::DiscreteGpu => 0,
+                VkPhysicalDeviceType::IntegratedGpu => 1,
+                VkPhysicalDeviceType::VirtualGpu => 2,
+                VkPhysicalDeviceType::Cpu => 3,
+                VkPhysicalDeviceType::Other => 4,
+                _ => 5,
+            }
+        });
+        
+        // Return the best device
+        let (device, queue_index, _) = candidates[0];
+        Ok((device, queue_index))
     }
     
     /// Find a queue family with compute support
