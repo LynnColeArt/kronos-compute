@@ -96,12 +96,29 @@ rustc --version
 ### Linux
 
 #### Issue: "Failed to load ICD"
-**Solution**: Add Vulkan ICD paths:
+**Causes**:
+1. ICD manifest found but library resolution failed (common when `library_path` is relative and not in default linker paths)
+2. No manifests found in standard paths
+
+**Diagnostics**:
+```bash
+RUST_LOG=kronos_compute=info,kronos_compute::implementation::icd_loader=debug <your app>
+```
+Look for:
+- "ICD search paths" list
+- "Discovered ICD candidate" entries for each JSON
+- "Attempting to load ICD library" entries per candidate
+- Any per-candidate error messages
+
+**Solutions**:
+1. Ensure RADV/NVIDIA/Intel ICD JSONs exist (e.g., `/usr/share/vulkan/icd.d/radeon_icd.x86_64.json`)
+2. If needed, set Vulkan ICD override:
 ```bash
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 # Or for AMD:
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json
 ```
+3. If the JSON uses a relative `library_path`, ensure the corresponding `.so` is in the system library search path (e.g., `/usr/lib/x86_64-linux-gnu/`). Kronos now tries both the as-provided name and manifest-relative path.
 
 #### Issue: Permission denied accessing GPU
 **Solution**: Add user to video/render groups:
@@ -150,7 +167,7 @@ let ctx = ComputeContext::builder()
 
 ### Check ICD Loading
 ```bash
-RUST_LOG=kronos_compute::implementation::icd_loader=trace cargo run
+RUST_LOG=kronos_compute=info,kronos_compute::implementation::icd_loader=debug cargo run
 ```
 
 ## Getting Help

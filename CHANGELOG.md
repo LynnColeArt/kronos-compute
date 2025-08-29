@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6-rc3] - 2025-08-29
+
+### Fixed
+- AMD RADV not discovered unless `VK_ICD_FILENAMES` set: loader now resolves `library_path` both as-provided (honors dynamic linker search) and relative to the manifest directory. Ensures `/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` works out-of-the-box on Ubuntu/Mesa.
+- Incorrect `VkStructureType` constants for shader/pipeline objects corrected to match Vulkan spec (`ShaderModuleCreateInfo=15`, `ComputePipelineCreateInfo=28`, `PipelineCacheCreateInfo=17`).
+- Potential double-destroy of Vulkan resources when cloning `ComputeContext`: Drop now only destroys on last clone.
+- Invalid device-proc fallback: `load_device_functions` no longer uses a NULL instance fallback and now requires `vkGetDeviceProcAddr`.
+
+### Improved
+- ICD discovery logging: now logs all search paths, each discovered JSON, and each library load attempt, including errors per candidate.
+- Global ICD function load failures are now propagated instead of silently ignored.
+
 ## [0.1.6-rc2] - 2025-08-29
 
 ### Changed
@@ -96,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Limited to compute operations only (no graphics)
 
 [Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...HEAD
+[0.1.6-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...v0.1.6-rc3
 [0.1.6-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc1...v0.1.6-rc2
 [0.1.6-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc3...v0.1.6-rc1
 [0.1.5-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc2...v0.1.5-rc3

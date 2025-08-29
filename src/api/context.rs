@@ -368,6 +368,10 @@ impl ComputeContext {
 
 impl Drop for ComputeContext {
     fn drop(&mut self) {
+        // Only the last Clone should perform destruction to avoid double-free.
+        if std::sync::Arc::strong_count(&self.inner) != 1 {
+            return;
+        }
         let inner = self.inner.lock().unwrap();
         unsafe {
             if inner.command_pool != VkCommandPool::NULL {

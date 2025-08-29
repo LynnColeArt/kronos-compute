@@ -66,6 +66,8 @@ fn get_icd_search_paths() -> Vec<PathBuf> {
         }
     }
     
+    // Log paths we will search
+    log::info!("ICD search paths: {:#?}", paths);
     paths
 }
 
@@ -225,6 +227,7 @@ pub fn discover_icds() -> Vec<PathBuf> {
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
                     // Skip if already added from environment variable
                     if !env_icds.contains(&path) {
+                        log::debug!("Discovered ICD candidate: {}", path.display());
                         icd_files.push(path);
                         path_count += 1;
                     }
@@ -365,9 +368,8 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
             wait_semaphores: None,
         };
         
-        // Load global functions
-        load_global_functions(&mut icd);
-        
+        // Load global functions and propagate failure instead of silently ignoring it
+        load_global_functions(&mut icd)?;
         Ok(icd)
     }
 }
@@ -463,19 +465,14 @@ pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance)
 /// - Function signatures must match the Vulkan specification exactly
 /// - The fallback to instance proc addr requires a valid instance context
 pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Result<(), IcdError> {
-    // Get the function loader
-    let get_instance_proc = icd.vk_get_instance_proc_addr
-        .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
+    // Prefer device-level loader; do not fall back to NULL instance, which is invalid.
+    let get_device_proc_fn = icd
+        .get_device_proc_addr
+        .ok_or(IcdError::MissingFunction("vkGetDeviceProcAddr not loaded"))?;
     
-    // Helper function to get proc address
+    // Helper function to get proc address strictly via device
     let get_proc_addr_helper = |name: *const c_char| -> PFN_vkVoidFunction {
-        if let Some(get_device_proc_fn) = icd.get_device_proc_addr {
-            get_device_proc_fn(device, name)
-        } else {
-            // Fall back to instance proc addr
-            let instance = VkInstance::NULL; // We'd need to track this
-            get_instance_proc(instance, name)
-        }
+        get_device_proc_fn(device, name)
     };
     
     macro_rules! load_fn {
@@ -594,34 +591,53 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
     // Try to load each ICD
     for (idx, icd_file) in icd_files.iter().enumerate() {
         if let Some(manifest) = parse_icd_manifest(&icd_file) {
-            let lib_path = if manifest.library_path.starts_with('/') {
-                PathBuf::from(&manifest.library_path)
+            // Build candidate library paths. Prefer the path as provided to allow
+            // dynamic linker search to resolve common locations (e.g. /usr/lib). As a
+            // fallback, try relative to the manifest directory.
+            let mut candidates: Vec<PathBuf> = Vec::new();
+            if Path::new(&manifest.library_path).is_absolute() {
+                candidates.push(PathBuf::from(&manifest.library_path));
             } else {
-                // Relative to manifest file
-                icd_file.parent()
-                    .ok_or_else(|| IcdError::InvalidPath(format!("Manifest file has no parent directory: {:?}", icd_file)))?
-                    .join(&manifest.library_path)
-            };
-            
-            match load_icd(&lib_path) {
-                Ok(icd) => {
+                // As provided (lets dlopen search LD_LIBRARY_PATH etc.)
+                candidates.push(PathBuf::from(&manifest.library_path));
+                // Fallback relative to manifest directory
+                if let Some(parent) = icd_file.parent() {
+                    candidates.push(parent.join(&manifest.library_path));
+                }
+            }
+
+            let mut loaded_ok: Option<LoadedICD> = None;
+            for cand in &candidates {
+                log::info!("Attempting to load ICD library: {} (from {})",
+                           cand.display(), icd_file.display());
+                match load_icd(cand) {
+                    Ok(icd) => {
+                        loaded_ok = Some(icd);
+                        break;
+                    }
+                    Err(e) => {
+                        warn!("Failed to load candidate {}: {}", cand.display(), e);
+                    }
+                }
+            }
+
+            if let Some(icd) = loaded_ok {
                     // Check if this is a software renderer
-                    let is_software = lib_path.to_string_lossy().contains("lvp") || 
-                                     lib_path.to_string_lossy().contains("swrast") ||
-                                     lib_path.to_string_lossy().contains("llvmpipe");
+                    let path_str = icd.library_path.to_string_lossy();
+                    let is_software = path_str.contains("lvp") ||
+                                     path_str.contains("swrast") ||
+                                     path_str.contains("llvmpipe");
                     
                     // Environment variable ICDs are prioritized (first N entries from discover_icds)
                     let is_env_priority = idx < env_icd_count;
                     
                     let icd_type = if is_software { "software" } else { "hardware" };
                     let priority_str = if is_env_priority { " (VK_ICD_FILENAMES priority)" } else { "" };
-                    info!("Successfully loaded {} Vulkan ICD: {}{}", icd_type, lib_path.display(), priority_str);
+                    info!("Successfully loaded {} Vulkan ICD: {}{}", icd_type, icd.library_path.display(), priority_str);
                     
                     loaded_icds.push((icd, is_software, is_env_priority));
-                }
-                Err(e) => {
-                    warn!("Failed to load ICD {}: {}", lib_path.display(), e);
-                }
+            } else {
+                warn!("Failed to load ICD from any candidate for manifest {}", icd_file.display());
             }
         }
     }

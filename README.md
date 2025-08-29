@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 2 (v0.1.6-rc2): Further ICD improvements! VK_ICD_FILENAMES is now properly treated as an override (not exclusive), and Kronos discovers ALL available drivers for intelligent fallback. Full user control when needed, smart defaults when not!**
+> **📦 Release Candidate 3 (v0.1.6-rc3): AMD ICD discovery fixed and diagnostics improved! `library_path` is now resolved robustly (as-provided and manifest-relative), and loader logs are more actionable. Hardware drivers are detected automatically without `VK_ICD_FILENAMES`.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
@@ -56,12 +56,14 @@ Kronos Compute is a streamlined Vulkan implementation that removes all graphics 
 - Zero-cost abstractions
 - Memory safety guarantees
 
-### 4. **Smart ICD Loader** (NEW in v0.1.6)
+### 4. **Smart ICD Loader** (Improved in v0.1.6)
 - Automatically discovers all available Vulkan drivers
 - Prioritizes hardware drivers (AMD, NVIDIA, Intel) over software renderers
 - No manual `VK_ICD_FILENAMES` configuration needed
 - Falls back to software rendering only when no hardware is available
 - Clear logging of available and selected drivers
+ - Robust library resolution: resolves `library_path` as provided (via dynamic linker search) and relative to the manifest directory
+ - Detailed discovery logs: search paths, discovered JSON files, load attempts, and per-candidate errors
 
 ### 5. **Optimized Structures**
 - `VkPhysicalDeviceFeatures`: 32 bytes (vs 220 in standard Vulkan)
@@ -232,6 +234,19 @@ Kronos can be configured via environment variables:
 - `VK_ICD_FILENAMES`: Standard Vulkan ICD override
 - `RUST_LOG`: Logging level (info, debug, trace)
 
+### ICD Discovery Logging
+Enable detailed logs to debug ICD discovery and loading:
+
+```bash
+RUST_LOG=kronos_compute=info,kronos_compute::implementation::icd_loader=debug cargo run
+```
+
+Logs include:
+- Search paths scanned
+- Each discovered manifest JSON
+- Each library load attempt (as-provided and manifest-relative)
+- Errors per candidate and the selected ICD summary
+
 Runtime configuration through the API:
 ```rust
 // Set timeline batch size
@@ -295,6 +310,7 @@ Comprehensive documentation is available in the `docs/` directory:
   - [Optimization Summary](docs/architecture/OPTIMIZATION_SUMMARY.md) - Mini's 4 optimizations explained
   - [Vulkan Comparison](docs/architecture/VULKAN_COMPARISON.md) - Differences from standard Vulkan
   - [ICD Integration](docs/architecture/ICD_SUCCESS.md) - How Kronos integrates with existing drivers
+  - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and ICD loader diagnostics
   
 - **Quality Assurance**: Test results and validation reports
   - [QA Report](docs/qa/QA_REPORT.md) - Comprehensive validation for Sporkle integration
