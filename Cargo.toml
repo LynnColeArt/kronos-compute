@@ -1,6 +1,6 @@
 [package]
 name = "kronos-compute"
-version = "0.1.5-rc1"
+version = "0.1.5-rc3"
 edition = "2021"
 rust-version = "1.70"
 authors = ["Lynn Cole <lynn@lynncole.art>"]
@@ -12,7 +12,7 @@ documentation = "https://docs.rs/kronos-compute"
 readme = "README.md"
 keywords = ["vulkan", "compute", "gpu", "gpgpu", "hpc"]
 categories = ["graphics", "api-bindings", "concurrency", "hardware-support"]
-exclude = ["src/bin/*", "target/*", ".git/*", "*.backup"]
+exclude = ["target/*", ".git/*", "*.backup"]
 
 [dependencies]
 # Core dependencies
@@ -32,7 +32,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 env_logger = "0.10"
 
 [features]
-default = ["validation"]
+default = ["validation", "implementation"]
 validation = []
 vendored = []  # Use vendored loader
 compare-ash = ["ash"]  # Enable comparison benchmarks with ash

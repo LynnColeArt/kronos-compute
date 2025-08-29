@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5-rc3] - 2025-08-29
+
+### Fixed
+- GPU selection now properly prioritizes hardware devices over software renderers (llvmpipe)
+- Added device name and type logging for debugging GPU selection
+
+## [0.1.5-rc2] - 2025-08-29
+
+### Fixed
+- Added `implementation` feature to default features so the Vulkan driver implementation is included by default
+- Fixed package publishing to include working implementation out of the box
+
 ## [0.1.5-rc1] - 2025-08-25
 
 ### Added
@@ -60,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc1...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc3...HEAD
+[0.1.5-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc2...v0.1.5-rc3
+[0.1.5-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc1...v0.1.5-rc2
 [0.1.5-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.0...v0.1.5-rc1
 [0.1.0]: https://github.com/LynnColeArt/kronos-compute/releases/tag/v0.1.0

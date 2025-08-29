@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 1 (v0.1.5-rc1): This project has reached release candidate status! The core functionality is stable, the unified safe API is complete, and all critical issues have been resolved. We welcome beta testing and feedback.**
+> **📦 Release Candidate 3 (v0.1.5-rc3): This project has reached release candidate status! The core functionality is stable, the unified safe API is complete, and all critical issues have been resolved. We welcome beta testing and feedback.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
