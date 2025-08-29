@@ -569,6 +569,9 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
     
     info!("Found {} ICD manifest files", icd_files.len());
     
+    // Collect all successfully loaded ICDs
+    let mut loaded_icds = Vec::new();
+    
     // Try to load each ICD
     for icd_file in icd_files {
         if let Some(manifest) = parse_icd_manifest(&icd_file) {
@@ -583,9 +586,15 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
             
             match load_icd(&lib_path) {
                 Ok(icd) => {
-                    info!("Successfully loaded Vulkan ICD: {}", lib_path.display());
-                    *ICD_LOADER.lock()? = Some(icd);
-                    return Ok(());
+                    // Check if this is a software renderer
+                    let is_software = lib_path.to_string_lossy().contains("lvp") || 
+                                     lib_path.to_string_lossy().contains("swrast") ||
+                                     lib_path.to_string_lossy().contains("llvmpipe");
+                    
+                    let icd_type = if is_software { "software" } else { "hardware" };
+                    info!("Successfully loaded {} Vulkan ICD: {}", icd_type, lib_path.display());
+                    
+                    loaded_icds.push((icd, is_software));
                 }
                 Err(e) => {
                     warn!("Failed to load ICD {}: {}", lib_path.display(), e);
@@ -594,7 +603,30 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
         }
     }
     
-    Err(IcdError::InvalidManifest("Failed to load any Vulkan ICD".to_string()))
+    if loaded_icds.is_empty() {
+        return Err(IcdError::InvalidManifest("Failed to load any Vulkan ICD".to_string()));
+    }
+    
+    // Sort ICDs: hardware drivers first, then software renderers
+    loaded_icds.sort_by_key(|(_, is_software)| *is_software);
+    
+    // Log all available ICDs
+    info!("Available ICDs: {} hardware, {} software", 
+          loaded_icds.iter().filter(|(_, is_sw)| !is_sw).count(),
+          loaded_icds.iter().filter(|(_, is_sw)| *is_sw).count());
+    
+    // Use the best ICD (first in sorted list)
+    let (best_icd, is_software) = loaded_icds.into_iter().next().unwrap();
+    
+    if is_software {
+        warn!("Using software renderer - no hardware Vulkan drivers found");
+        info!("To use hardware drivers, ensure they are installed and ICD files are in /usr/share/vulkan/icd.d/");
+    } else {
+        info!("Selected hardware Vulkan driver: {}", best_icd.library_path.display());
+    }
+    
+    *ICD_LOADER.lock()? = Some(best_icd);
+    Ok(())
 }
 
 /// Get the loaded ICD

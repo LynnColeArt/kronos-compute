@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 3 (v0.1.5-rc3): This project has reached release candidate status! The core functionality is stable, the unified safe API is complete, and all critical issues have been resolved. We welcome beta testing and feedback.**
+> **📦 Release Candidate 1 (v0.1.6-rc1): Major ICD loader improvements! Kronos now properly discovers and prioritizes hardware Vulkan drivers (AMD, NVIDIA, Intel) over software renderers. No more manual VK_ICD_FILENAMES workarounds needed!**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
@@ -56,7 +56,14 @@ Kronos Compute is a streamlined Vulkan implementation that removes all graphics 
 - Zero-cost abstractions
 - Memory safety guarantees
 
-### 4. **Optimized Structures**
+### 4. **Smart ICD Loader** (NEW in v0.1.6)
+- Automatically discovers all available Vulkan drivers
+- Prioritizes hardware drivers (AMD, NVIDIA, Intel) over software renderers
+- No manual `VK_ICD_FILENAMES` configuration needed
+- Falls back to software rendering only when no hardware is available
+- Clear logging of available and selected drivers
+
+### 5. **Optimized Structures**
 - `VkPhysicalDeviceFeatures`: 32 bytes (vs 220 in standard Vulkan)
 - `VkBufferCreateInfo`: Reordered fields for better packing
 - `VkMemoryTypeCache`: O(1) memory type lookups
