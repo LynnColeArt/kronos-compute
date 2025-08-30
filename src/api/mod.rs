@@ -71,6 +71,10 @@ pub struct ContextConfig {
     pub enable_validation: bool,
     /// Preferred GPU vendor (AMD, NVIDIA, Intel)
     pub preferred_vendor: Option<String>,
+    /// Preferred ICD by path (process-wide for now)
+    pub preferred_icd_path: Option<std::path::PathBuf>,
+    /// Preferred ICD by index (process-wide for now)
+    pub preferred_icd_index: Option<usize>,
 }
 
 /// Builder for ComputeContext
@@ -97,6 +101,18 @@ impl ContextBuilder {
     
     pub fn prefer_vendor(mut self, vendor: impl Into<String>) -> Self {
         self.config.preferred_vendor = Some(vendor.into());
+        self
+    }
+    
+    /// Prefer a specific ICD by its resolved library path
+    pub fn prefer_icd_path<P: Into<std::path::PathBuf>>(mut self, path: P) -> Self {
+        self.config.preferred_icd_path = Some(path.into());
+        self
+    }
+    
+    /// Prefer a specific ICD by index (from available_icds())
+    pub fn prefer_icd_index(mut self, index: usize) -> Self {
+        self.config.preferred_icd_index = Some(index);
         self
     }
     

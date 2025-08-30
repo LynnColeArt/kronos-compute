@@ -179,7 +179,7 @@ unsafe impl Sync for LoadedICD {}
 #[derive(Debug, Clone)]
 pub struct IcdInfo {
     pub library_path: PathBuf,
-    pub manifest_path: PathBuf,
+    pub manifest_path: Option<PathBuf>,
     pub api_version: u32,
     pub is_software: bool,
 }
@@ -317,7 +317,7 @@ pub fn available_icds() -> Vec<IcdInfo> {
 
                     out.push(IcdInfo {
                         library_path: icd.library_path,
-                        manifest_path: icd_file.clone(),
+                        manifest_path: Some(icd_file.clone()),
                         api_version,
                         is_software,
                     });
@@ -328,6 +328,49 @@ pub fn available_icds() -> Vec<IcdInfo> {
     }
 
     out
+}
+
+// Preferred ICD selection (process-wide for now)
+#[derive(Debug, Clone)]
+enum IcdPreference {
+    Path(PathBuf),
+    Index(usize),
+}
+
+lazy_static::lazy_static! {
+    static ref PREFERRED_ICD: Mutex<Option<IcdPreference>> = Mutex::new(None);
+}
+
+pub fn set_preferred_icd_path<P: Into<PathBuf>>(path: P) {
+    if let Ok(mut pref) = PREFERRED_ICD.lock() {
+        *pref = Some(IcdPreference::Path(path.into()));
+    }
+}
+
+pub fn set_preferred_icd_index(index: usize) {
+    if let Ok(mut pref) = PREFERRED_ICD.lock() {
+        *pref = Some(IcdPreference::Index(index));
+    }
+}
+
+pub fn clear_preferred_icd() {
+    if let Ok(mut pref) = PREFERRED_ICD.lock() {
+        *pref = None;
+    }
+}
+
+/// Get info for the currently selected/loaded ICD (if any)
+pub fn selected_icd_info() -> Option<IcdInfo> {
+    let icd = get_icd()?;
+    let path = icd.library_path.clone();
+    let path_str = path.to_string_lossy();
+    let is_software = path_str.contains("lvp") || path_str.contains("swrast") || path_str.contains("llvmpipe");
+    Some(IcdInfo {
+        library_path: path,
+        manifest_path: None,
+        api_version: icd.api_version,
+        is_software,
+    })
 }
 
 /// Load an ICD library
@@ -728,8 +771,31 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
           loaded_icds.iter().filter(|(_, is_sw, _)| !is_sw).count(),
           loaded_icds.iter().filter(|(_, is_sw, _)| *is_sw).count());
     
-    // Use the best ICD (first in sorted list)
-    let (best_icd, is_software, is_env_priority) = loaded_icds.into_iter().next().unwrap();
+    // Check for explicit preference
+    let preferred = PREFERRED_ICD.lock().ok().and_then(|p| p.clone());
+    let (best_icd, is_software, is_env_priority) = if let Some(pref) = preferred {
+        match pref {
+            IcdPreference::Path(want) => {
+                if let Some((idx, _)) = loaded_icds.iter().enumerate().find(|(_, (icd, _, _))| icd.library_path == want) {
+                    loaded_icds.into_iter().nth(idx).unwrap()
+                } else {
+                    warn!("Preferred ICD path not found: {} — falling back to default selection", want.display());
+                    loaded_icds.into_iter().next().unwrap()
+                }
+            }
+            IcdPreference::Index(i) => {
+                if i < loaded_icds.len() {
+                    loaded_icds.into_iter().nth(i).unwrap()
+                } else {
+                    warn!("Preferred ICD index {} out of range ({}); falling back to default", i, loaded_icds.len());
+                    loaded_icds.into_iter().next().unwrap()
+                }
+            }
+        }
+    } else {
+        // Use the best ICD (first in sorted list)
+        loaded_icds.into_iter().next().unwrap()
+    };
     
     if is_env_priority {
         info!("Using ICD specified by VK_ICD_FILENAMES: {}", best_icd.library_path.display());

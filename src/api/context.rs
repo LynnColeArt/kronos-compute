@@ -41,6 +41,13 @@ unsafe impl Sync for ComputeContext {}
 impl ComputeContext {
     pub(super) fn new_with_config(config: ContextConfig) -> Result<Self> {
         unsafe {
+            // Apply preferred ICD selection (process-wide for now)
+            if let Some(ref p) = config.preferred_icd_path {
+                crate::implementation::icd_loader::set_preferred_icd_path(p.clone());
+            } else if let Some(i) = config.preferred_icd_index {
+                crate::implementation::icd_loader::set_preferred_icd_index(i);
+            }
+
             // Initialize Kronos ICD loader
             initialize_kronos()
                 .map_err(|e| KronosError::InitializationFailed(e.to_string()))?;
@@ -91,6 +98,16 @@ impl ComputeContext {
                 memory_properties,
             };
             
+            // Log selected ICD info
+            if let Some(info) = crate::implementation::icd_loader::selected_icd_info() {
+                log::info!(
+                    "ComputeContext bound to ICD: {} ({}), api=0x{:x}",
+                    info.library_path.display(),
+                    if info.is_software { "software" } else { "hardware" },
+                    info.api_version
+                );
+            }
+
             Ok(Self {
                 inner: Arc::new(Mutex::new(inner)),
             })
@@ -356,6 +373,11 @@ impl ComputeContext {
         self.inner.lock().unwrap().device_properties
     }
     
+    /// Get information about the ICD bound to this context (process-wide)
+    pub fn icd_info(&self) -> Option<crate::implementation::icd_loader::IcdInfo> {
+        crate::implementation::icd_loader::selected_icd_info()
+    }
+
     // Internal helper for other modules
     pub(super) fn with_inner<F, R>(&self, f: F) -> R
     where
