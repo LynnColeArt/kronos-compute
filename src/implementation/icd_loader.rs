@@ -541,7 +541,22 @@ fn is_trusted_library(path: &Path) -> bool {
         let p = path.to_string_lossy();
         return TRUSTED_PREFIXES.iter().any(|prefix| p.starts_with(prefix));
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    {
+        // Trust common system locations by default
+        let p = path.to_string_lossy().to_lowercase();
+        let sysroot = env::var("SYSTEMROOT").unwrap_or_else(|_| String::from("C:\\Windows"));
+        let sys32 = format!("{}\\System32", sysroot);
+        let sys32_l = sys32.to_lowercase();
+        // Program Files (both x64/x86)
+        let pf = env::var("PROGRAMFILES").unwrap_or_default().to_lowercase();
+        let pf86 = env::var("PROGRAMFILES(X86)").unwrap_or_default().to_lowercase();
+        let trusted = p.starts_with(&sys32_l)
+            || (p.starts_with(&pf) && p.contains("vulkan"))
+            || (!pf86.is_empty() && p.starts_with(&pf86) && p.contains("vulkan"));
+        return trusted;
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
         // Conservative default on other platforms
         true
@@ -568,31 +583,57 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
             )));
         }
 
-        // Load the library
-        let lib_cstr = CString::new(canon.as_os_str().as_bytes())?;
-        
-        let handle = libc::dlopen(lib_cstr.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
-        if handle.is_null() {
-            let error = CStr::from_ptr(libc::dlerror()).to_string_lossy();
-            return Err(IcdError::LibraryLoadFailed(format!("{}: {}", library_path.display(), error)));
-        }
-        
+        // Load the library (cross-platform)
+        #[cfg(windows)]
+        let lib = {
+            libloading::Library::new(&canon)
+                .map_err(|e| IcdError::LibraryLoadFailed(format!("{}: {}", canon.display(), e)))?
+        };
+        #[cfg(not(windows))]
+        let (handle, lib) = {
+            let lib_cstr = CString::new(canon.as_os_str().as_bytes())?;
+            let handle = libc::dlopen(lib_cstr.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
+            if handle.is_null() {
+                let error = unsafe { CStr::from_ptr(libc::dlerror()) }.to_string_lossy().into_owned();
+                return Err(IcdError::LibraryLoadFailed(format!("{}: {}", library_path.display(), error)));
+            }
+            (handle, ())
+        };
+
         // Get vk_icdGetInstanceProcAddr (ICD entry point)
-        let get_instance_proc_addr_name = CString::new("vk_icdGetInstanceProcAddr")?;
-        let get_instance_proc_addr_ptr = libc::dlsym(handle, get_instance_proc_addr_name.as_ptr());
-        
-        if get_instance_proc_addr_ptr.is_null() {
-            libc::dlclose(handle);
-            return Err(IcdError::MissingFunction("vk_icdGetInstanceProcAddr"));
-        }
-        
-        let vk_get_instance_proc_addr: PFN_vkGetInstanceProcAddr = 
-            std::mem::transmute(get_instance_proc_addr_ptr);
+        #[cfg(windows)]
+        let get_proc = unsafe {
+            let sym: libloading::Symbol<unsafe extern "C" fn(VkInstance, *const c_char) -> PFN_vkVoidFunction> =
+                lib.get(b"vk_icdGetInstanceProcAddr\0")
+                    .map_err(|e| IcdError::LibraryLoadFailed(format!("{}: missing vk_icdGetInstanceProcAddr ({})", canon.display(), e)))?;
+            Some(*sym)
+        };
+        #[cfg(not(windows))]
+        let get_proc = {
+            let get_instance_proc_addr_name = CString::new("vk_icdGetInstanceProcAddr")?;
+            let ptr = unsafe { libc::dlsym(handle, get_instance_proc_addr_name.as_ptr()) };
+            if ptr.is_null() {
+                unsafe { libc::dlclose(handle); }
+                return Err(IcdError::MissingFunction("vk_icdGetInstanceProcAddr"));
+            }
+            let f: PFN_vkGetInstanceProcAddr = unsafe { std::mem::transmute(ptr) };
+            f
+        };
+        let vk_get_instance_proc_addr: PFN_vkGetInstanceProcAddr = get_proc;
         
         // Get global functions
         let mut icd = LoadedICD {
             library_path: canon,
-            handle,
+            // Keep library alive for process lifetime. On Windows, store as opaque pointer.
+            handle: {
+                #[cfg(windows)]
+                {
+                    let boxed = Box::new(lib);
+                    Box::into_raw(boxed) as *mut c_void
+                }
+                #[cfg(not(windows))]
+                { handle as *mut c_void }
+            },
             api_version: VK_API_VERSION_1_0,
             vk_get_instance_proc_addr,
             create_instance: None,

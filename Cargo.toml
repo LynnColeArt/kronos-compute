@@ -22,6 +22,7 @@ lazy_static = { version = "1.4", optional = true }
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+libloading = "0.8"
 
 # Optional dependencies for different features
 ash = { version = "0.37", optional = true }  # For comparison with standard Vulkan
