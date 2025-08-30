@@ -381,6 +381,27 @@ fn parse_api_version(version: &str) -> Option<u32> {
     Some(VK_MAKE_VERSION(major, minor, patch))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_api_version() {
+        assert_eq!(parse_api_version("1.2.176"), Some(VK_MAKE_VERSION(1,2,176)));
+        assert_eq!(parse_api_version("1.3"), Some(VK_MAKE_VERSION(1,3,0)));
+        assert_eq!(parse_api_version("2"), Some(VK_MAKE_VERSION(2,0,0)));
+        assert_eq!(parse_api_version(""), None);
+        assert_eq!(parse_api_version("a.b.c"), None);
+    }
+
+    #[test]
+    fn test_aggregated_mode_default_off() {
+        // By default, aggregated mode should be disabled unless env var is set
+        std::env::remove_var("KRONOS_AGGREGATE_ICD");
+        assert!(!aggregated_mode_enabled());
+    }
+}
+
 /// Return all loadable ICDs with metadata (does not mutate global state)
 pub fn available_icds() -> Vec<IcdInfo> {
     let mut out = Vec::new();
