@@ -28,11 +28,7 @@ pub unsafe extern "C" fn vkCreateDevice(
             
             // If successful, load device functions
             if result == VkResult::Success {
-                if let Ok(mut icd_mut) = super::icd_loader::ICD_LOADER.lock() {
-                    if let Some(icd) = icd_mut.as_mut() {
-                        let _ = super::icd_loader::load_device_functions(icd, *pDevice);
-                    }
-                }
+                let _ = super::icd_loader::update_device_functions(*pDevice);
             }
             
             return result;
@@ -152,4 +148,3 @@ pub unsafe extern "C" fn vkDeviceWaitIdle(device: VkDevice) -> VkResult {
     // No ICD available
     VkResult::ErrorInitializationFailed
 }
-

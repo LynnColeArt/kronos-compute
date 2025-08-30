@@ -28,11 +28,7 @@ pub unsafe extern "C" fn vkCreateInstance(
             
             // If successful, load instance functions
             if result == VkResult::Success {
-                if let Ok(mut icd_mut) = super::icd_loader::ICD_LOADER.lock() {
-                    if let Some(icd) = icd_mut.as_mut() {
-                        let _ = super::icd_loader::load_instance_functions(icd, *pInstance);
-                    }
-                }
+                let _ = super::icd_loader::update_instance_functions(*pInstance);
             }
             
             return result;

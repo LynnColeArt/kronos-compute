@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
 use libc::{c_void, c_char};
+use std::sync::{Arc, Mutex};
 use log::{info, warn, debug};
 use serde::{Deserialize, Serialize};
 use crate::sys::*;
@@ -79,6 +80,7 @@ fn get_icd_search_paths() -> Vec<PathBuf> {
 }
 
 /// Loaded ICD information
+#[derive(Clone)]
 pub struct LoadedICD {
     pub library_path: PathBuf,
     pub handle: *mut c_void,
@@ -207,8 +209,8 @@ struct ICDManifest {
 }
 
 lazy_static::lazy_static! {
-    // Global ICD loader state
-    pub static ref ICD_LOADER: Mutex<Option<LoadedICD>> = Mutex::new(None);
+    // Global ICD loader state (Arc allows safe sharing; we replace on updates)
+    pub static ref ICD_LOADER: Mutex<Option<Arc<LoadedICD>>> = Mutex::new(None);
 }
 
 /// Find and load Vulkan ICDs
@@ -520,7 +522,7 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
         };
         
         // Load global functions and propagate failure instead of silently ignoring it
-        load_global_functions(&mut icd)?;
+        load_global_functions_inner(&mut icd)?;
         Ok(icd)
     }
 }
@@ -536,7 +538,7 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
 /// - The ICD library must be loaded and remain valid for the lifetime of icd
 /// - Function signatures must match the Vulkan specification exactly
 /// - Incorrect function pointers will cause undefined behavior when called
-unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
+unsafe fn load_global_functions_inner(icd: &mut LoadedICD) -> Result<(), IcdError> {
     let get_proc_addr = icd.vk_get_instance_proc_addr
         .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
     
@@ -573,7 +575,7 @@ unsafe fn load_global_functions(icd: &mut LoadedICD) -> Result<(), IcdError> {
 /// - The instance must remain valid for at least as long as these functions are used
 /// - Using an invalid instance handle will cause undefined behavior
 /// - Function signatures must match the Vulkan specification exactly
-pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance) -> Result<(), IcdError> {
+pub unsafe fn load_instance_functions_inner(icd: &mut LoadedICD, instance: VkInstance) -> Result<(), IcdError> {
     let get_proc_addr = icd.vk_get_instance_proc_addr
         .ok_or(IcdError::MissingFunction("vkGetInstanceProcAddr not loaded"))?;
     
@@ -615,7 +617,7 @@ pub unsafe fn load_instance_functions(icd: &mut LoadedICD, instance: VkInstance)
 /// - Using an invalid device handle will cause undefined behavior
 /// - Function signatures must match the Vulkan specification exactly
 /// - The fallback to instance proc addr requires a valid instance context
-pub unsafe fn load_device_functions(icd: &mut LoadedICD, device: VkDevice) -> Result<(), IcdError> {
+pub unsafe fn load_device_functions_inner(icd: &mut LoadedICD, device: VkDevice) -> Result<(), IcdError> {
     // Prefer device-level loader; do not fall back to NULL instance, which is invalid.
     let get_device_proc_fn = icd
         .get_device_proc_addr
@@ -853,21 +855,34 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
         info!("Selected hardware Vulkan driver: {}", best_icd.library_path.display());
     }
     
-    *ICD_LOADER.lock()? = Some(best_icd);
+    *ICD_LOADER.lock()? = Some(Arc::new(best_icd));
     Ok(())
 }
 
-/// Get the loaded ICD
-pub fn get_icd() -> Option<&'static LoadedICD> {
-    // SAFETY: We convert the ICD reference to a static lifetime. This is safe because:
-    // 1. The ICD is stored in a static Mutex (ICD_LOADER)
-    // 2. Once loaded, the ICD is never unloaded during program execution
-    // 3. The returned reference is immutable
-    unsafe {
-        ICD_LOADER.lock().ok()?.as_ref().map(|icd| {
-            &*(icd as *const LoadedICD)
-        })
-    }
+/// Get the loaded ICD (shared clone)
+pub fn get_icd() -> Option<Arc<LoadedICD>> {
+    ICD_LOADER.lock().ok()?.as_ref().cloned()
 }
 
-use std::sync::Mutex;
+/// Apply a mutation to the current ICD by replacing it with an updated copy
+fn replace_icd<F>(mutator: F) -> Result<(), IcdError>
+where
+    F: FnOnce(&mut LoadedICD) -> Result<(), IcdError>,
+{
+    let mut guard = ICD_LOADER.lock()?;
+    let current = guard.as_ref().ok_or(IcdError::NoIcdLoaded)?;
+    let mut updated = (**current).clone();
+    mutator(&mut updated)?;
+    *guard = Some(Arc::new(updated));
+    Ok(())
+}
+
+/// Update instance-level function pointers for the current ICD
+pub unsafe fn update_instance_functions(instance: VkInstance) -> Result<(), IcdError> {
+    replace_icd(|icd| load_instance_functions_inner(icd, instance))
+}
+
+/// Update device-level function pointers for the current ICD
+pub unsafe fn update_device_functions(device: VkDevice) -> Result<(), IcdError> {
+    replace_icd(|icd| load_device_functions_inner(icd, device))
+}
