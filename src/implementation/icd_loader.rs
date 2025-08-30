@@ -66,9 +66,16 @@ fn get_icd_search_paths() -> Vec<PathBuf> {
         }
     }
     
-    // Log paths we will search
-    log::info!("ICD search paths: {:#?}", paths);
-    paths
+    // Canonicalize where possible to mitigate traversal issues
+    let mut canon = Vec::new();
+    for p in paths {
+        match fs::canonicalize(&p) {
+            Ok(cp) => canon.push(cp),
+            Err(_) => canon.push(p), // keep original if canonicalize fails
+        }
+    }
+    log::info!("ICD search paths: {:#?}", canon);
+    canon
 }
 
 /// Loaded ICD information
@@ -213,12 +220,13 @@ pub fn discover_icds() -> Vec<PathBuf> {
     if let Ok(icd_filenames) = env::var("VK_ICD_FILENAMES") {
         let separator = if cfg!(windows) { ';' } else { ':' };
         for path in icd_filenames.split(separator) {
-            let path = PathBuf::from(path);
-            if path.exists() {
-                env_icds.push(path.clone());
-                icd_files.push(path);
+            let raw = PathBuf::from(path);
+            let can = fs::canonicalize(&raw).unwrap_or(raw);
+            if can.exists() {
+                env_icds.push(can.clone());
+                icd_files.push(can);
             } else {
-                warn!("VK_ICD_FILENAMES contains non-existent path: {}", path.display());
+                warn!("VK_ICD_FILENAMES contains non-existent path: {}", path);
             }
         }
         if !env_icds.is_empty() {
@@ -236,8 +244,9 @@ pub fn discover_icds() -> Vec<PathBuf> {
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
                     // Skip if already added from environment variable
                     if !env_icds.contains(&path) {
-                        log::debug!("Discovered ICD candidate: {}", path.display());
-                        icd_files.push(path);
+                        let can = fs::canonicalize(&path).unwrap_or(path);
+                        log::debug!("Discovered ICD candidate: {}", can.display());
+                        icd_files.push(can);
                         path_count += 1;
                     }
                 }
@@ -266,8 +275,7 @@ fn parse_icd_manifest(path: &Path) -> Option<ICDManifest> {
                 warn!("ICD manifest has empty library_path: {}", path.display());
                 return None;
             }
-            debug!("Successfully parsed ICD manifest: {} -> {}", 
-                   path.display(), manifest_root.icd.library_path);
+            debug!("Successfully parsed ICD manifest: {} -> {}", path.display(), manifest_root.icd.library_path);
             Some(manifest_root.icd)
         }
         Err(e) => {
@@ -374,14 +382,52 @@ pub fn selected_icd_info() -> Option<IcdInfo> {
 }
 
 /// Load an ICD library
+fn is_trusted_library(path: &Path) -> bool {
+    if env::var("KRONOS_ALLOW_UNTRUSTED_LIBS").map(|v| v == "1").unwrap_or(false) {
+        return true;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        const TRUSTED_PREFIXES: &[&str] = &[
+            "/usr/lib",
+            "/usr/lib64",
+            "/usr/local/lib",
+            "/lib",
+            "/lib64",
+            "/usr/lib/x86_64-linux-gnu",
+        ];
+        let p = path.to_string_lossy();
+        return TRUSTED_PREFIXES.iter().any(|prefix| p.starts_with(prefix));
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // Conservative default on other platforms
+        true
+    }
+}
+
 pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
     // SAFETY: This function uses unsafe operations for:
     // 1. dlopen/dlsym - We ensure the library path is valid and null-terminated
     // 2. Function pointer transmutation - We trust the Vulkan ICD to provide correct function signatures
     // 3. The loaded library handle is kept alive for the lifetime of LoadedICD
     unsafe {
+        // Resolve and validate the library path
+        let canon = fs::canonicalize(library_path).unwrap_or_else(|_| library_path.to_path_buf());
+        let meta = fs::metadata(&canon)
+            .map_err(|_| IcdError::LibraryLoadFailed(format!("{} (metadata not found)", canon.display())))?;
+        if !meta.is_file() {
+            return Err(IcdError::LibraryLoadFailed(format!("{} is not a regular file", canon.display())));
+        }
+        if !is_trusted_library(&canon) {
+            return Err(IcdError::LibraryLoadFailed(format!(
+                "{} rejected by trust policy (set KRONOS_ALLOW_UNTRUSTED_LIBS=1 to override)",
+                canon.display()
+            )));
+        }
+
         // Load the library
-        let lib_cstr = CString::new(library_path.as_os_str().as_bytes())?;
+        let lib_cstr = CString::new(canon.as_os_str().as_bytes())?;
         
         let handle = libc::dlopen(lib_cstr.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
         if handle.is_null() {
@@ -403,7 +449,7 @@ pub fn load_icd(library_path: &Path) -> Result<LoadedICD, IcdError> {
         
         // Get global functions
         let mut icd = LoadedICD {
-            library_path: library_path.to_owned(),
+            library_path: canon,
             handle,
             api_version: VK_API_VERSION_1_0,
             vk_get_instance_proc_addr,
@@ -713,15 +759,16 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
 
             let mut loaded_ok: Option<LoadedICD> = None;
             for cand in &candidates {
-                log::info!("Attempting to load ICD library: {} (from {})",
-                           cand.display(), icd_file.display());
-                match load_icd(cand) {
+                // Canonicalize candidate for validation
+                let can = fs::canonicalize(cand).unwrap_or(cand.clone());
+                log::info!("Attempting to load ICD library: {} (from {})", can.display(), icd_file.display());
+                match load_icd(&can) {
                     Ok(icd) => {
                         loaded_ok = Some(icd);
                         break;
                     }
                     Err(e) => {
-                        warn!("Failed to load candidate {}: {}", cand.display(), e);
+                        warn!("Failed to load candidate {}: {}", can.display(), e);
                     }
                 }
             }

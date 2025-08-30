@@ -23,6 +23,8 @@ mod tests {
             app_name: "Test App".to_string(),
             enable_validation: true,
             preferred_vendor: None,
+            preferred_icd_index: None,
+            preferred_icd_path: None,
         };
         
         assert_eq!(config.app_name, "Test App");
