@@ -247,6 +247,40 @@ Logs include:
 - Each library load attempt (as-provided and manifest-relative)
 - Errors per candidate and the selected ICD summary
 
+### ICD Selection
+You can enumerate available ICDs and select one explicitly when creating a context.
+
+- Enumerate programmatically:
+
+```rust
+use kronos_compute::implementation::icd_loader;
+let icds = icd_loader::available_icds();
+for (i, icd) in icds.iter().enumerate() {
+    println!("[{i}] {} ({}), api=0x{:x}",
+        icd.library_path.display(),
+        if icd.is_software { "software" } else { "hardware" },
+        icd.api_version);
+}
+```
+
+- Select via `ContextBuilder`:
+
+```rust
+use kronos_compute::api;
+let ctx = api::ComputeContext::builder()
+    .prefer_icd_index(0)               // or .prefer_icd_path("/path/to/libvulkan_*.so")
+    .build()?;
+println!("Using ICD: {:?}", ctx.icd_info());
+```
+
+- Example CLI:
+
+```bash
+cargo run --example icd_select -- list
+cargo run --example icd_select -- index 0
+cargo run --example icd_select -- path /usr/lib/x86_64-linux-gnu/libvulkan_radeon.so
+```
+
 Runtime configuration through the API:
 ```rust
 // Set timeline batch size
