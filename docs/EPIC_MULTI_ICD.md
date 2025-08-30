@@ -95,6 +95,14 @@ println!("Using ICD: {}", chosen.library_path.display());
 - Mis‑routing calls across ICDs: enforce “bound context” per ICD, keep routing localized.
 - Aggregated enumeration complexity: punt to Phase 4 with clear design gate.
 
+### Phase 3.5 – Loader Lifetime Safety (Follow‑up)
+- [ ] Replace `get_icd()` unsafe lifetime cast with safe borrowing.
+- [ ] Store loader state as `Arc<RwLock<LoadedICD>>` or `Box<LoadedICD>` with scoped borrows.
+- [ ] Provide `with_icd(|&LoadedICD| ...)` helper for read access; `with_icd_mut` for writes during initialization.
+- [ ] Update mutation sites to use write access (load_instance_functions, load_device_functions).
+- [ ] Remove unsafe `'static` cast; document lifetime model and guarantees.
+- [ ] Add unit tests covering concurrent read access and mutation points.
+
 ## Telemetry & Logging
 - Keep `info` summary and `debug` per‑candidate logs.
 - On context creation, log selected ICD and whether software/hardware.
@@ -104,4 +112,3 @@ println!("Using ICD: {}", chosen.library_path.display());
 - P3: 1–2 days across supported platforms.
 - P5: 0.5–1 day docs/examples.
 - P4: separate mini‑epic (1–2 weeks) if green‑lit.
-

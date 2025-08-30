@@ -99,6 +99,7 @@ rustc --version
 **Causes**:
 1. ICD manifest found but library resolution failed (common when `library_path` is relative and not in default linker paths)
 2. No manifests found in standard paths
+3. Library rejected by trust policy (non-standard location without override)
 
 **Diagnostics**:
 ```bash
@@ -119,6 +120,11 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json
 ```
 3. If the JSON uses a relative `library_path`, ensure the corresponding `.so` is in the system library search path (e.g., `/usr/lib/x86_64-linux-gnu/`). Kronos now tries both the as-provided name and manifest-relative path.
+4. If your ICD lives outside trusted prefixes (development or custom builds), you can temporarily allow it:
+```bash
+export KRONOS_ALLOW_UNTRUSTED_LIBS=1
+```
+Note: this disables trust enforcement; only use in controlled environments.
 
 #### Issue: Permission denied accessing GPU
 **Solution**: Add user to video/render groups:

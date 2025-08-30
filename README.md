@@ -281,6 +281,11 @@ cargo run --example icd_select -- index 0
 cargo run --example icd_select -- path /usr/lib/x86_64-linux-gnu/libvulkan_radeon.so
 ```
 
+### Security Notes (ICD Loading)
+- Paths from `VK_ICD_FILENAMES` and discovery directories are canonicalized and validated.
+- Libraries must resolve to regular files under trusted prefixes (Linux defaults: `/usr/lib`, `/usr/lib64`, `/usr/local/lib`, `/lib`, `/lib64`, `/usr/lib/x86_64-linux-gnu`).
+- For development on non-standard locations, set `KRONOS_ALLOW_UNTRUSTED_LIBS=1` to override the trust policy (not recommended for production).
+
 Runtime configuration through the API:
 ```rust
 // Set timeline batch size
