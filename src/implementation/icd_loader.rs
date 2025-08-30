@@ -175,6 +175,15 @@ pub struct LoadedICD {
 unsafe impl Send for LoadedICD {}
 unsafe impl Sync for LoadedICD {}
 
+/// Public info about a loadable ICD
+#[derive(Debug, Clone)]
+pub struct IcdInfo {
+    pub library_path: PathBuf,
+    pub manifest_path: PathBuf,
+    pub api_version: u32,
+    pub is_software: bool,
+}
+
 /// ICD manifest root structure
 #[derive(Debug, Deserialize, Serialize)]
 struct ICDManifestRoot {
@@ -266,6 +275,59 @@ fn parse_icd_manifest(path: &Path) -> Option<ICDManifest> {
             None
         }
     }
+}
+
+/// Parse API version from manifest string like "1.3.268" into VK_MAKE_VERSION
+fn parse_api_version(version: &str) -> Option<u32> {
+    let mut parts = version.split('.');
+    let major = parts.next()?.parse::<u32>().ok()?;
+    let minor = parts.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let patch = parts.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    Some(VK_MAKE_VERSION(major, minor, patch))
+}
+
+/// Return all loadable ICDs with metadata (does not mutate global state)
+pub fn available_icds() -> Vec<IcdInfo> {
+    let mut out = Vec::new();
+    let icd_files = discover_icds();
+
+    for icd_file in &icd_files {
+        if let Some(manifest) = parse_icd_manifest(icd_file) {
+            // Build candidate library paths; prefer absolute, else try as-provided and manifest-relative
+            let mut candidates: Vec<PathBuf> = Vec::new();
+            if Path::new(&manifest.library_path).is_absolute() {
+                candidates.push(PathBuf::from(&manifest.library_path));
+            } else {
+                candidates.push(PathBuf::from(&manifest.library_path));
+                if let Some(parent) = icd_file.parent() {
+                    candidates.push(parent.join(&manifest.library_path));
+                }
+            }
+
+            // Attempt to load first working candidate for this manifest
+            for cand in &candidates {
+                if let Ok(icd) = load_icd(cand) {
+                    let path_str = icd.library_path.to_string_lossy();
+                    let is_software = path_str.contains("lvp") || path_str.contains("swrast") || path_str.contains("llvmpipe");
+                    let api_version = manifest
+                        .api_version
+                        .as_deref()
+                        .and_then(parse_api_version)
+                        .unwrap_or(icd.api_version);
+
+                    out.push(IcdInfo {
+                        library_path: icd.library_path,
+                        manifest_path: icd_file.clone(),
+                        api_version,
+                        is_software,
+                    });
+                    break; // one entry per manifest
+                }
+            }
+        }
+    }
+
+    out
 }
 
 /// Load an ICD library
