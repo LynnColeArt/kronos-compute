@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+use crate::implementation::icd_loader;
 
 /// Create a logical device
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -20,22 +21,33 @@ pub unsafe extern "C" fn vkCreateDevice(
     if physicalDevice.is_null() || pCreateInfo.is_null() || pDevice.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    // Try to forward to real driver
-    if let Some(icd) = super::icd_loader::get_icd() {
-        if let Some(create_device_fn) = icd.create_device {
+
+    // Aggregated-aware: prefer ICD owning the physical device
+    if let Some(icd_arc) = icd_loader::icd_for_physical_device(physicalDevice) {
+        if let Some(create_device_fn) = icd_arc.create_device {
             let result = create_device_fn(physicalDevice, pCreateInfo, pAllocator, pDevice);
-            
-            // If successful, load device functions
             if result == VkResult::Success {
-                let _ = super::icd_loader::update_device_functions(*pDevice);
+                // Load device-level functions into a cloned ICD and register device → ICD mapping
+                let mut cloned = (*icd_arc).clone();
+                let _ = icd_loader::load_device_functions_inner(&mut cloned, *pDevice);
+                let updated = std::sync::Arc::new(cloned);
+                icd_loader::register_device_icd(*pDevice, &updated);
             }
-            
             return result;
         }
     }
-    
-    // No ICD available
+
+    // Fallback to single-ICD driver
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_device_fn) = icd.create_device {
+            let result = create_device_fn(physicalDevice, pCreateInfo, pAllocator, pDevice);
+            if result == VkResult::Success {
+                let _ = super::icd_loader::update_device_functions(*pDevice);
+            }
+            return result;
+        }
+    }
+
     VkResult::ErrorInitializationFailed
 }
 
@@ -76,8 +88,19 @@ pub unsafe extern "C" fn vkGetDeviceQueue(
     if device.is_null() || pQueue.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+
+    // Route via owning ICD if known
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.get_device_queue {
+            f(device, queueFamilyIndex, queueIndex, pQueue);
+            if let Some(queue) = pQueue.as_ref() {
+                // Register queue → ICD mapping
+                icd_loader::register_queue_icd(unsafe { *queue }, &icd);
+            }
+            return;
+        }
+    }
+    // Fallback
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(get_device_queue) = icd.get_device_queue {
             get_device_queue(device, queueFamilyIndex, queueIndex, pQueue);
@@ -101,15 +124,15 @@ pub unsafe extern "C" fn vkQueueSubmit(
     if queue.is_null() {
         return VkResult::ErrorDeviceLost;
     }
-    
-    // Forward to real driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(queue_submit) = icd.queue_submit {
-            return queue_submit(queue, submitCount, pSubmits, fence);
-        }
+
+    // Route via queue owner if known
+    if let Some(icd) = icd_loader::icd_for_queue(queue) {
+        if let Some(f) = icd.queue_submit { return f(queue, submitCount, pSubmits, fence); }
     }
-    
-    // No ICD available
+    // Fallback
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(f) = icd.queue_submit { return f(queue, submitCount, pSubmits, fence); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -119,15 +142,13 @@ pub unsafe extern "C" fn vkQueueWaitIdle(queue: VkQueue) -> VkResult {
     if queue.is_null() {
         return VkResult::ErrorDeviceLost;
     }
-    
-    // Forward to real driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(queue_wait_idle) = icd.queue_wait_idle {
-            return queue_wait_idle(queue);
-        }
+
+    if let Some(icd) = icd_loader::icd_for_queue(queue) {
+        if let Some(f) = icd.queue_wait_idle { return f(queue); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(f) = icd.queue_wait_idle { return f(queue); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -137,14 +158,12 @@ pub unsafe extern "C" fn vkDeviceWaitIdle(device: VkDevice) -> VkResult {
     if device.is_null() {
         return VkResult::ErrorDeviceLost;
     }
-    
-    // Forward to real driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(device_wait_idle) = icd.device_wait_idle {
-            return device_wait_idle(device);
-        }
+
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.device_wait_idle { return f(device); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(f) = icd.device_wait_idle { return f(device); }
+    }
     VkResult::ErrorInitializationFailed
 }
