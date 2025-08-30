@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+// keep single import
 use crate::implementation::icd_loader;
 
 /// Create shader module
@@ -24,14 +25,12 @@ pub unsafe extern "C" fn vkCreateShaderModule(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_shader_module) = icd.create_shader_module {
-            return create_shader_module(device, pCreateInfo, pAllocator, pShaderModule);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_shader_module { return f(device, pCreateInfo, pAllocator, pShaderModule); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_shader_module) = icd.create_shader_module { return create_shader_module(device, pCreateInfo, pAllocator, pShaderModule); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -52,11 +51,12 @@ pub unsafe extern "C" fn vkDestroyShaderModule(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.destroy_shader_module { f(device, shaderModule, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_shader_module) = icd.destroy_shader_module {
-            destroy_shader_module(device, shaderModule, pAllocator);
-        }
+        if let Some(destroy_shader_module) = icd.destroy_shader_module { destroy_shader_module(device, shaderModule, pAllocator); }
     }
 }
 
@@ -82,14 +82,12 @@ pub unsafe extern "C" fn vkCreateComputePipelines(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_compute_pipelines) = icd.create_compute_pipelines {
-            return create_compute_pipelines(device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_compute_pipelines { return f(device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_compute_pipelines) = icd.create_compute_pipelines { return create_compute_pipelines(device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -110,11 +108,12 @@ pub unsafe extern "C" fn vkDestroyPipeline(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.destroy_pipeline { f(device, pipeline, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_pipeline) = icd.destroy_pipeline {
-            destroy_pipeline(device, pipeline, pAllocator);
-        }
+        if let Some(destroy_pipeline) = icd.destroy_pipeline { destroy_pipeline(device, pipeline, pAllocator); }
     }
 }
 
@@ -137,14 +136,12 @@ pub unsafe extern "C" fn vkCreatePipelineLayout(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_pipeline_layout) = icd.create_pipeline_layout {
-            return create_pipeline_layout(device, pCreateInfo, pAllocator, pPipelineLayout);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_pipeline_layout { return f(device, pCreateInfo, pAllocator, pPipelineLayout); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_pipeline_layout) = icd.create_pipeline_layout { return create_pipeline_layout(device, pCreateInfo, pAllocator, pPipelineLayout); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -165,11 +162,12 @@ pub unsafe extern "C" fn vkDestroyPipelineLayout(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.destroy_pipeline_layout { f(device, pipelineLayout, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_pipeline_layout) = icd.destroy_pipeline_layout {
-            destroy_pipeline_layout(device, pipelineLayout, pAllocator);
-        }
+        if let Some(destroy_pipeline_layout) = icd.destroy_pipeline_layout { destroy_pipeline_layout(device, pipelineLayout, pAllocator); }
     }
 }
 

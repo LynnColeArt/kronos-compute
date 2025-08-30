@@ -48,9 +48,10 @@ Enable discovering multiple Vulkan ICDs, exposing them to the user, and allowing
 - [ ] Stress: create/destroy multiple contexts across ICDs; submit/idle/teardown cycles.
 
 ### Phase 4 – (Optional) Aggregated Enumeration Across ICDs
-- [ ] Design: handle provenance routing across all entrypoints (map `Vk*` → owning ICD).
-- [ ] Aggregate `vkEnumeratePhysicalDevices` across ICDs; return combined list.
-- [ ] Route instance/device/queue/command calls by originating ICD.
+- [x] Design: handle provenance routing across key entrypoints (map `Vk*` → owning ICD).
+- [x] Aggregate `vkEnumeratePhysicalDevices` across ICDs; return combined list (KRONOS_AGGREGATE_ICD=1).
+- [x] Route device/queue/command pool/cmd buffer creation and vkCmd* calls by originating handle.
+- [ ] Route remaining object types (descriptors/buffers/memory/pipelines) by device mapping (audit/extend).
 - [ ] Concurrency & safety review; perf assessment.
 - [ ] Large test pass across mixed ICD sets.
 

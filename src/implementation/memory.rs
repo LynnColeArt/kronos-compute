@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+use crate::implementation::icd_loader;
 
 /// Allocate device memory
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -21,14 +22,12 @@ pub unsafe extern "C" fn vkAllocateMemory(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(allocate_memory) = icd.allocate_memory {
-            return allocate_memory(device, pAllocateInfo, pAllocator, pMemory);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.allocate_memory { return f(device, pAllocateInfo, pAllocator, pMemory); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(allocate_memory) = icd.allocate_memory { return allocate_memory(device, pAllocateInfo, pAllocator, pMemory); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -48,11 +47,12 @@ pub unsafe extern "C" fn vkFreeMemory(
         return;
     }
     
-    // Forward to real driver
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.free_memory { f(device, memory, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(free_memory) = icd.free_memory {
-            free_memory(device, memory, pAllocator);
-        }
+        if let Some(free_memory) = icd.free_memory { free_memory(device, memory, pAllocator); }
     }
 }
 
@@ -76,14 +76,12 @@ pub unsafe extern "C" fn vkMapMemory(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(map_memory) = icd.map_memory {
-            return map_memory(device, memory, offset, size, flags, ppData);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.map_memory { return f(device, memory, offset, size, flags, ppData); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(map_memory) = icd.map_memory { return map_memory(device, memory, offset, size, flags, ppData); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -101,10 +99,11 @@ pub unsafe extern "C" fn vkUnmapMemory(
         return;
     }
     
-    // Forward to real driver
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.unmap_memory { f(device, memory); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(unmap_memory) = icd.unmap_memory {
-            unmap_memory(device, memory);
-        }
+        if let Some(unmap_memory) = icd.unmap_memory { unmap_memory(device, memory); }
     }
 }

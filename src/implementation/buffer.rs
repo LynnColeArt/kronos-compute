@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+use crate::implementation::icd_loader;
 
 /// Create a buffer
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -22,14 +23,14 @@ pub unsafe extern "C" fn vkCreateBuffer(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_buffer) = icd.create_buffer {
-            return create_buffer(device, pCreateInfo, pAllocator, pBuffer);
-        }
+    // Route via owning ICD if known
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_buffer { return f(device, pCreateInfo, pAllocator, pBuffer); }
     }
-    
-    // No ICD available
+    // Fallback
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_buffer) = icd.create_buffer { return create_buffer(device, pCreateInfo, pAllocator, pBuffer); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -50,11 +51,12 @@ pub unsafe extern "C" fn vkDestroyBuffer(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.destroy_buffer { f(device, buffer, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_buffer) = icd.destroy_buffer {
-            destroy_buffer(device, buffer, pAllocator);
-        }
+        if let Some(destroy_buffer) = icd.destroy_buffer { destroy_buffer(device, buffer, pAllocator); }
     }
 }
 
@@ -74,11 +76,12 @@ pub unsafe extern "C" fn vkGetBufferMemoryRequirements(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.get_buffer_memory_requirements { f(device, buffer, pMemoryRequirements); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(get_buffer_memory_requirements) = icd.get_buffer_memory_requirements {
-            get_buffer_memory_requirements(device, buffer, pMemoryRequirements);
-        }
+        if let Some(get_buffer_memory_requirements) = icd.get_buffer_memory_requirements { get_buffer_memory_requirements(device, buffer, pMemoryRequirements); }
     }
 }
 
@@ -101,13 +104,11 @@ pub unsafe extern "C" fn vkBindBufferMemory(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(bind_buffer_memory) = icd.bind_buffer_memory {
-            return bind_buffer_memory(device, buffer, memory, memoryOffset);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.bind_buffer_memory { return f(device, buffer, memory, memoryOffset); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(bind_buffer_memory) = icd.bind_buffer_memory { return bind_buffer_memory(device, buffer, memory, memoryOffset); }
+    }
     VkResult::ErrorInitializationFailed
 }

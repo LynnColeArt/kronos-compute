@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+use crate::implementation::icd_loader;
 
 /// Create descriptor set layout
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -23,14 +24,12 @@ pub unsafe extern "C" fn vkCreateDescriptorSetLayout(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_descriptor_set_layout) = icd.create_descriptor_set_layout {
-            return create_descriptor_set_layout(device, pCreateInfo, pAllocator, pSetLayout);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_descriptor_set_layout { return f(device, pCreateInfo, pAllocator, pSetLayout); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_descriptor_set_layout) = icd.create_descriptor_set_layout { return create_descriptor_set_layout(device, pCreateInfo, pAllocator, pSetLayout); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -51,11 +50,12 @@ pub unsafe extern "C" fn vkDestroyDescriptorSetLayout(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.destroy_descriptor_set_layout { f(device, descriptorSetLayout, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_descriptor_set_layout) = icd.destroy_descriptor_set_layout {
-            destroy_descriptor_set_layout(device, descriptorSetLayout, pAllocator);
-        }
+        if let Some(destroy_descriptor_set_layout) = icd.destroy_descriptor_set_layout { destroy_descriptor_set_layout(device, descriptorSetLayout, pAllocator); }
     }
 }
 
@@ -78,14 +78,12 @@ pub unsafe extern "C" fn vkCreateDescriptorPool(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_descriptor_pool) = icd.create_descriptor_pool {
-            return create_descriptor_pool(device, pCreateInfo, pAllocator, pDescriptorPool);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_descriptor_pool { return f(device, pCreateInfo, pAllocator, pDescriptorPool); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(create_descriptor_pool) = icd.create_descriptor_pool { return create_descriptor_pool(device, pCreateInfo, pAllocator, pDescriptorPool); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -106,11 +104,12 @@ pub unsafe extern "C" fn vkDestroyDescriptorPool(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.destroy_descriptor_pool { f(device, descriptorPool, pAllocator); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_descriptor_pool) = icd.destroy_descriptor_pool {
-            destroy_descriptor_pool(device, descriptorPool, pAllocator);
-        }
+        if let Some(destroy_descriptor_pool) = icd.destroy_descriptor_pool { destroy_descriptor_pool(device, descriptorPool, pAllocator); }
     }
 }
 
@@ -131,14 +130,12 @@ pub unsafe extern "C" fn vkResetDescriptorPool(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(reset_descriptor_pool) = icd.reset_descriptor_pool {
-            return reset_descriptor_pool(device, descriptorPool, flags);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.reset_descriptor_pool { return f(device, descriptorPool, flags); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(reset_descriptor_pool) = icd.reset_descriptor_pool { return reset_descriptor_pool(device, descriptorPool, flags); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -160,14 +157,12 @@ pub unsafe extern "C" fn vkAllocateDescriptorSets(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(allocate_descriptor_sets) = icd.allocate_descriptor_sets {
-            return allocate_descriptor_sets(device, pAllocateInfo, pDescriptorSets);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.allocate_descriptor_sets { return f(device, pAllocateInfo, pDescriptorSets); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(allocate_descriptor_sets) = icd.allocate_descriptor_sets { return allocate_descriptor_sets(device, pAllocateInfo, pDescriptorSets); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -191,14 +186,12 @@ pub unsafe extern "C" fn vkFreeDescriptorSets(
         return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(free_descriptor_sets) = icd.free_descriptor_sets {
-            return free_descriptor_sets(device, descriptorPool, descriptorSetCount, pDescriptorSets);
-        }
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.free_descriptor_sets { return f(device, descriptorPool, descriptorSetCount, pDescriptorSets); }
     }
-    
-    // No ICD available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(free_descriptor_sets) = icd.free_descriptor_sets { return free_descriptor_sets(device, descriptorPool, descriptorSetCount, pDescriptorSets); }
+    }
     VkResult::ErrorInitializationFailed
 }
 
@@ -223,11 +216,13 @@ pub unsafe extern "C" fn vkUpdateDescriptorSets(
         return;
     }
     
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.update_descriptor_sets { f(device, descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(update_descriptor_sets) = icd.update_descriptor_sets {
-            update_descriptor_sets(device, descriptorWriteCount, pDescriptorWrites,
-                                 descriptorCopyCount, pDescriptorCopies);
+            update_descriptor_sets(device, descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
         }
     }
 }

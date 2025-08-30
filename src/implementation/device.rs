@@ -71,6 +71,9 @@ pub unsafe extern "C" fn vkDestroyDevice(
             destroy_device(device, pAllocator);
         }
     }
+
+    // Unregister device from provenance registry (aggregated mode)
+    crate::implementation::icd_loader::unregister_device(device);
 }
 
 /// Get a device queue
