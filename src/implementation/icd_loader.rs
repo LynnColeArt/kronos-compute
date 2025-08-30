@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
 use libc::{c_void, c_char};
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, Weak};
 use log::{info, warn, debug};
 use serde::{Deserialize, Serialize};
 use crate::sys::*;
@@ -211,6 +212,13 @@ struct ICDManifest {
 lazy_static::lazy_static! {
     // Global ICD loader state (Arc allows safe sharing; we replace on updates)
     pub static ref ICD_LOADER: Mutex<Option<Arc<LoadedICD>>> = Mutex::new(None);
+    // Handle provenance registries (Phase 4.1 scaffolding)
+    static ref REG_INSTANCES: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
+    static ref REG_PHYS_DEVS: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
+    static ref REG_DEVICES: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
+    static ref REG_QUEUES: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
+    static ref REG_CMD_POOLS: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
+    static ref REG_CMD_BUFFERS: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
 }
 
 /// Find and load Vulkan ICDs
@@ -381,6 +389,61 @@ pub fn selected_icd_info() -> Option<IcdInfo> {
         api_version: icd.api_version,
         is_software,
     })
+}
+
+// ===== Phase 4.1: Handle provenance registry (public helpers) =====
+
+fn upgrade_icd(w: &Weak<LoadedICD>) -> Option<Arc<LoadedICD>> { w.upgrade() }
+
+pub fn register_instance_icd(instance: VkInstance, icd: &Arc<LoadedICD>) {
+    let _ = REG_INSTANCES.lock().map(|mut m| { m.insert(instance.as_raw(), Arc::downgrade(icd)); });
+}
+pub fn register_physical_device_icd(phys: VkPhysicalDevice, icd: &Arc<LoadedICD>) {
+    let _ = REG_PHYS_DEVS.lock().map(|mut m| { m.insert(phys.as_raw(), Arc::downgrade(icd)); });
+}
+pub fn register_device_icd(device: VkDevice, icd: &Arc<LoadedICD>) {
+    let _ = REG_DEVICES.lock().map(|mut m| { m.insert(device.as_raw(), Arc::downgrade(icd)); });
+}
+pub fn register_queue_icd(queue: VkQueue, icd: &Arc<LoadedICD>) {
+    let _ = REG_QUEUES.lock().map(|mut m| { m.insert(queue.as_raw(), Arc::downgrade(icd)); });
+}
+pub fn register_command_pool_icd(pool: VkCommandPool, icd: &Arc<LoadedICD>) {
+    let _ = REG_CMD_POOLS.lock().map(|mut m| { m.insert(pool.as_raw(), Arc::downgrade(icd)); });
+}
+pub fn register_command_buffer_icd(cb: VkCommandBuffer, icd: &Arc<LoadedICD>) {
+    let _ = REG_CMD_BUFFERS.lock().map(|mut m| { m.insert(cb.as_raw(), Arc::downgrade(icd)); });
+}
+
+pub fn unregister_instance(instance: VkInstance) { let _ = REG_INSTANCES.lock().map(|mut m| { m.remove(&instance.as_raw()); }); }
+pub fn unregister_physical_device(phys: VkPhysicalDevice) { let _ = REG_PHYS_DEVS.lock().map(|mut m| { m.remove(&phys.as_raw()); }); }
+pub fn unregister_device(device: VkDevice) { let _ = REG_DEVICES.lock().map(|mut m| { m.remove(&device.as_raw()); }); }
+pub fn unregister_queue(queue: VkQueue) { let _ = REG_QUEUES.lock().map(|mut m| { m.remove(&queue.as_raw()); }); }
+pub fn unregister_command_pool(pool: VkCommandPool) { let _ = REG_CMD_POOLS.lock().map(|mut m| { m.remove(&pool.as_raw()); }); }
+pub fn unregister_command_buffer(cb: VkCommandBuffer) { let _ = REG_CMD_BUFFERS.lock().map(|mut m| { m.remove(&cb.as_raw()); }); }
+
+pub fn icd_for_instance(instance: VkInstance) -> Option<Arc<LoadedICD>> {
+    REG_INSTANCES.lock().ok()?.get(&instance.as_raw()).and_then(upgrade_icd)
+        .or_else(|| get_icd())
+}
+pub fn icd_for_physical_device(phys: VkPhysicalDevice) -> Option<Arc<LoadedICD>> {
+    REG_PHYS_DEVS.lock().ok()?.get(&phys.as_raw()).and_then(upgrade_icd)
+        .or_else(|| icd_for_instance(VkInstance::NULL))
+}
+pub fn icd_for_device(device: VkDevice) -> Option<Arc<LoadedICD>> {
+    REG_DEVICES.lock().ok()?.get(&device.as_raw()).and_then(upgrade_icd)
+        .or_else(|| get_icd())
+}
+pub fn icd_for_queue(queue: VkQueue) -> Option<Arc<LoadedICD>> {
+    REG_QUEUES.lock().ok()?.get(&queue.as_raw()).and_then(upgrade_icd)
+        .or_else(|| get_icd())
+}
+pub fn icd_for_command_pool(pool: VkCommandPool) -> Option<Arc<LoadedICD>> {
+    REG_CMD_POOLS.lock().ok()?.get(&pool.as_raw()).and_then(upgrade_icd)
+        .or_else(|| get_icd())
+}
+pub fn icd_for_command_buffer(cb: VkCommandBuffer) -> Option<Arc<LoadedICD>> {
+    REG_CMD_BUFFERS.lock().ok()?.get(&cb.as_raw()).and_then(upgrade_icd)
+        .or_else(|| get_icd())
 }
 
 /// Load an ICD library
