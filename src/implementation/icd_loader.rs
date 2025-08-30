@@ -219,6 +219,83 @@ lazy_static::lazy_static! {
     static ref REG_QUEUES: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
     static ref REG_CMD_POOLS: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
     static ref REG_CMD_BUFFERS: Mutex<HashMap<u64, Weak<LoadedICD>>> = Mutex::new(HashMap::new());
+    // Aggregated mode: all loaded ICDs and meta-instance registry
+    static ref ALL_ICDS: Mutex<Vec<Arc<LoadedICD>>> = Mutex::new(Vec::new());
+    static ref META_INSTANCES: Mutex<HashMap<u64, Vec<(Arc<LoadedICD>, VkInstance)>>> = Mutex::new(HashMap::new());
+    static ref NEXT_META_INSTANCE: Mutex<u64> = Mutex::new(0xBEEF_0000_0000_0000);
+}
+
+pub fn aggregated_mode_enabled() -> bool {
+    std::env::var("KRONOS_AGGREGATE_ICD").map(|v| v == "1").unwrap_or(false)
+}
+
+pub fn new_meta_instance_id() -> u64 {
+    let mut g = NEXT_META_INSTANCE.lock().unwrap();
+    *g += 1;
+    *g
+}
+
+pub fn set_meta_instance(meta_id: u64, inners: Vec<(Arc<LoadedICD>, VkInstance)>) {
+    let _ = META_INSTANCES.lock().map(|mut m| { m.insert(meta_id, inners); });
+}
+
+pub fn take_meta_instance(meta_id: u64) -> Option<Vec<(Arc<LoadedICD>, VkInstance)>> {
+    META_INSTANCES.lock().ok()?.remove(&meta_id)
+}
+
+pub fn meta_instance_for(meta_id: u64) -> Option<Vec<(Arc<LoadedICD>, VkInstance)>> {
+    META_INSTANCES.lock().ok()?.get(&meta_id).cloned()
+}
+
+pub fn get_all_icds() -> Vec<Arc<LoadedICD>> {
+    if let Ok(guard) = ALL_ICDS.lock() {
+        guard.clone()
+    } else {
+        Vec::new()
+    }
+}
+
+/// Discover and load all ICDs (used in aggregated mode)
+pub fn discover_and_load_all_icds() -> Vec<Arc<LoadedICD>> {
+    let mut out = Vec::new();
+    let icd_files = discover_icds();
+    if icd_files.is_empty() { return out; }
+
+    let prefer_hardware = env::var("KRONOS_PREFER_HARDWARE").map(|v| v != "0").unwrap_or(true);
+
+    for icd_file in &icd_files {
+        if let Some(manifest) = parse_icd_manifest(icd_file) {
+            let mut candidates: Vec<PathBuf> = Vec::new();
+            if Path::new(&manifest.library_path).is_absolute() {
+                candidates.push(PathBuf::from(&manifest.library_path));
+            } else {
+                candidates.push(PathBuf::from(&manifest.library_path));
+                if let Some(parent) = icd_file.parent() { candidates.push(parent.join(&manifest.library_path)); }
+            }
+            for cand in &candidates {
+                let can = fs::canonicalize(cand).unwrap_or(cand.clone());
+                if let Ok(icd) = load_icd(&can) {
+                    let arc = Arc::new(icd);
+                    out.push(arc);
+                    break;
+                }
+            }
+        }
+    }
+
+    if prefer_hardware {
+        let any_hw = out.iter().any(|icd| {
+            let s = icd.library_path.to_string_lossy();
+            !(s.contains("lvp") || s.contains("swrast") || s.contains("llvmpipe"))
+        });
+        if any_hw {
+            out.retain(|icd| {
+                let s = icd.library_path.to_string_lossy();
+                !(s.contains("lvp") || s.contains("swrast") || s.contains("llvmpipe"))
+            });
+        }
+    }
+    out
 }
 
 /// Find and load Vulkan ICDs
@@ -917,6 +994,13 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
     } else {
         info!("Selected hardware Vulkan driver: {}", best_icd.library_path.display());
     }
+    
+    // Store all ICDs (after policy filtering) for aggregated mode
+    let mut all_vec = Vec::new();
+    all_vec.push(Arc::new(best_icd.clone()));
+    // NOTE: Remaining ICDs from loaded_icds iterator were consumed above. Re-discover for completeness if needed.
+    // For now, push only the selected best ICD; aggregated mode will re-run discovery if more are needed.
+    *ALL_ICDS.lock()? = all_vec;
     
     *ICD_LOADER.lock()? = Some(Arc::new(best_icd));
     Ok(())

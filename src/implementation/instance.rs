@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+use std::ptr;
 
 /// Create a Kronos instance
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -20,8 +21,29 @@ pub unsafe extern "C" fn vkCreateInstance(
     if pCreateInfo.is_null() || pInstance.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
+    // Aggregated mode: create per-ICD instances and return a meta instance
+    if crate::implementation::icd_loader::aggregated_mode_enabled() {
+        let all = crate::implementation::icd_loader::discover_and_load_all_icds();
+        let mut inners = Vec::new();
+        for icd in all {
+            if let Some(create_instance_fn) = icd.create_instance {
+                let mut inner_inst = VkInstance::NULL;
+                let res = create_instance_fn(pCreateInfo, pAllocator, &mut inner_inst);
+                if res == VkResult::Success && !inner_inst.is_null() {
+                    inners.push((icd.clone(), inner_inst));
+                }
+            }
+        }
+        if inners.is_empty() {
+            return VkResult::ErrorInitializationFailed;
+        }
+        let meta_id = crate::implementation::icd_loader::new_meta_instance_id();
+        *pInstance = VkInstance::from_raw(meta_id);
+        crate::implementation::icd_loader::set_meta_instance(meta_id, inners);
+        return VkResult::Success;
+    }
     
-    // Try to use real Vulkan driver
+    // Try to use real Vulkan driver (single ICD)
     if let Some(icd) = super::icd_loader::get_icd() {
         if let Some(create_instance_fn) = icd.create_instance {
             let result = create_instance_fn(pCreateInfo, pAllocator, pInstance);
@@ -52,6 +74,15 @@ pub unsafe extern "C" fn vkDestroyInstance(
     if instance.is_null() {
         return;
     }
+    // Aggregated mode: destroy all inner instances
+    if crate::implementation::icd_loader::aggregated_mode_enabled() {
+        if let Some(inners) = crate::implementation::icd_loader::take_meta_instance(instance.as_raw()) {
+            for (icd, inner) in inners {
+                if let Some(f) = icd.destroy_instance { f(inner, pAllocator); }
+            }
+            return;
+        }
+    }
     
     // Forward to real ICD if available
     if let Some(icd) = super::forward::get_icd_if_enabled() {
@@ -75,8 +106,49 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     if instance.is_null() || pPhysicalDeviceCount.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
+    // Aggregated mode: sum counts across all inner instances for this meta instance
+    if crate::implementation::icd_loader::aggregated_mode_enabled() {
+        if let Some(inners) = crate::implementation::icd_loader::meta_instance_for(instance.as_raw()) {
+            let mut total = 0u32;
+            // First pass: count
+            for (icd, inner) in &inners {
+                if let Some(f) = icd.enumerate_physical_devices {
+                    let mut count = 0u32;
+                    let _ = f(*inner, &mut count, ptr::null_mut());
+                    total = total.saturating_add(count);
+                }
+            }
+            if pPhysicalDevices.is_null() {
+                *pPhysicalDeviceCount = total;
+                return VkResult::Success;
+            }
+            // Second pass: fill up to provided capacity
+            let cap = unsafe { *pPhysicalDeviceCount as usize };
+            let mut filled = 0usize;
+            for (icd, inner) in &inners {
+                if let Some(f) = icd.enumerate_physical_devices {
+                    if filled >= cap { break; }
+                    let mut count = (cap - filled) as u32;
+                    let buf_ptr = unsafe { pPhysicalDevices.add(filled) };
+                    let res = f(*inner, &mut count, buf_ptr);
+                    if res == VkResult::Success || res == VkResult::Incomplete {
+                        // Register ownership
+                        for i in 0..count as isize {
+                            let pd = unsafe { *buf_ptr.offset(i) };
+                            crate::implementation::icd_loader::register_physical_device_icd(pd, icd);
+                        }
+                        filled += count as usize;
+                    }
+                }
+            }
+            // Set actual filled count
+            unsafe { *pPhysicalDeviceCount = filled as u32; }
+            if filled < total as usize { return VkResult::Incomplete; }
+            return VkResult::Success;
+        }
+    }
     
-    // Forward to real ICD
+    // Forward to real ICD (single)
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(enumerate_physical_devices) = icd.enumerate_physical_devices {
             return enumerate_physical_devices(instance, pPhysicalDeviceCount, pPhysicalDevices);
@@ -103,12 +175,14 @@ pub unsafe extern "C" fn vkGetPhysicalDeviceProperties(
     if physicalDevice.is_null() || pProperties.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    // Route by owning ICD if known
+    if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
+        if let Some(f) = icd.get_physical_device_properties { f(physicalDevice, pProperties); }
+        return;
+    }
+    // Fallback to single ICD
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(get_physical_device_properties) = icd.get_physical_device_properties {
-            get_physical_device_properties(physicalDevice, pProperties);
-        }
+        if let Some(f) = icd.get_physical_device_properties { f(physicalDevice, pProperties); }
     }
 }
 
@@ -124,12 +198,12 @@ pub unsafe extern "C" fn vkGetPhysicalDeviceMemoryProperties(
     if physicalDevice.is_null() || pMemoryProperties.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
+        if let Some(f) = icd.get_physical_device_memory_properties { f(physicalDevice, pMemoryProperties); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(get_physical_device_memory_properties) = icd.get_physical_device_memory_properties {
-            get_physical_device_memory_properties(physicalDevice, pMemoryProperties);
-        }
+        if let Some(f) = icd.get_physical_device_memory_properties { f(physicalDevice, pMemoryProperties); }
     }
 }
 
@@ -143,11 +217,11 @@ pub unsafe extern "C" fn vkGetPhysicalDeviceQueueFamilyProperties(
     if physicalDevice.is_null() || pQueueFamilyPropertyCount.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
+        if let Some(f) = icd.get_physical_device_queue_family_properties { f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(get_physical_device_queue_family_properties) = icd.get_physical_device_queue_family_properties {
-            get_physical_device_queue_family_properties(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties);
-        }
+        if let Some(f) = icd.get_physical_device_queue_family_properties { f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); }
     }
 }
