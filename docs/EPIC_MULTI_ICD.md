@@ -27,22 +27,23 @@ Enable discovering multiple Vulkan ICDs, exposing them to the user, and allowing
 - [x] Safer `ComputeContext` Drop (destroy only on last clone).
 
 ### Phase 1 – ICD Enumeration API
-- [ ] Add `IcdInfo` struct: `{ library_path, manifest_path, api_version, is_software }`.
-- [ ] Add `implementation::icd_loader::available_icds() -> Vec<IcdInfo>`.
+- [x] Add `IcdInfo` struct: `{ library_path, manifest_path, api_version, is_software }`.
+- [x] Add `implementation::icd_loader::available_icds() -> Vec<IcdInfo>`.
 - [ ] Unit test: simulate discovery list and verify classification/logging.
-- [ ] Docs: README + Troubleshooting sections referencing enumeration API.
+- [x] Docs: README + Troubleshooting sections referencing enumeration API.
 
 ### Phase 2 – Builder Selection + Binding
-- [ ] Extend `api::ContextBuilder`:
-  - [ ] `prefer_icd_index(usize)`
-  - [ ] `prefer_icd_path<P: AsRef<Path>>(P)`
-- [ ] Plumb selection into context creation, binding to the chosen ICD.
-- [ ] Expose `ComputeContext::icd_info() -> IcdInfo` for verification.
+- [x] Extend `api::ContextBuilder`:
+  - [x] `prefer_icd_index(usize)`
+  - [x] `prefer_icd_path<P: AsRef<Path>>(P)`
+- [x] Plumb selection into context creation, binding to the chosen ICD.
+- [x] Expose `ComputeContext::icd_info() -> IcdInfo` for verification.
 - [ ] Integration tests: create contexts for two ICDs (e.g., RADV + llvmpipe) in one process.
-- [ ] Logging: “Selected ICD for context: <path>, type=<hardware|software>”.
+- [x] Logging: “Selected ICD for context: <path>, type=<hardware|software>”.
 
 ### Phase 3 – QA Coverage
-- [ ] Linux RADV + llvmpipe: enumeration, selection, dispatch sanity tests.
+- [x] Linux: add ignored smoke tests for enumeration and selection; QA plan doc.
+- [ ] Add dispatch sanity tests via safe API with selected ICD.
 - [ ] Windows basic smoke: ensure discovery doesn’t regress (stub for `LoadLibrary` path TBD).
 - [ ] Stress: create/destroy multiple contexts across ICDs; submit/idle/teardown cycles.
 
@@ -96,11 +97,9 @@ println!("Using ICD: {}", chosen.library_path.display());
 - Aggregated enumeration complexity: punt to Phase 4 with clear design gate.
 
 ### Phase 3.5 – Loader Lifetime Safety (Follow‑up)
-- [ ] Replace `get_icd()` unsafe lifetime cast with safe borrowing.
-- [ ] Store loader state as `Arc<RwLock<LoadedICD>>` or `Box<LoadedICD>` with scoped borrows.
-- [ ] Provide `with_icd(|&LoadedICD| ...)` helper for read access; `with_icd_mut` for writes during initialization.
-- [ ] Update mutation sites to use write access (load_instance_functions, load_device_functions).
-- [ ] Remove unsafe `'static` cast; document lifetime model and guarantees.
+- [x] Replace `get_icd()` unsafe lifetime cast with safe borrowing (return `Arc<LoadedICD>`).
+- [x] Update mutation sites to use replace-on-write helpers (`update_instance_functions`, `update_device_functions`).
+- [x] Remove unsafe `'static` cast; document lifetime model and guarantees.
 - [ ] Add unit tests covering concurrent read access and mutation points.
 
 ## Telemetry & Logging
