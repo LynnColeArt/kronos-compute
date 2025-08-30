@@ -3,6 +3,7 @@
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
+use crate::implementation::icd_loader;
 
 /// Create shader module
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -190,15 +191,22 @@ pub unsafe extern "C" fn vkCreateCommandPool(
     if device.is_null() || pCreateInfo.is_null() || pCommandPool.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    // Forward to real ICD
+    // Route via owning ICD if known
+    if let Some(icd) = icd_loader::icd_for_device(device) {
+        if let Some(f) = icd.create_command_pool {
+            let res = f(device, pCreateInfo, pAllocator, pCommandPool);
+            if res == VkResult::Success {
+                icd_loader::register_command_pool_icd(*pCommandPool, &icd);
+            }
+            return res;
+        }
+    }
+    // Fallback
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(create_command_pool) = icd.create_command_pool {
             return create_command_pool(device, pCreateInfo, pAllocator, pCommandPool);
         }
     }
-    
-    // No ICD available
     VkResult::ErrorInitializationFailed
 }
 
@@ -218,8 +226,11 @@ pub unsafe extern "C" fn vkDestroyCommandPool(
     if device.is_null() || commandPool.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_pool(commandPool) {
+        if let Some(f) = icd.destroy_command_pool { f(device, commandPool, pAllocator); }
+        icd_loader::unregister_command_pool(commandPool);
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(destroy_command_pool) = icd.destroy_command_pool {
             destroy_command_pool(device, commandPool, pAllocator);
@@ -243,15 +254,26 @@ pub unsafe extern "C" fn vkAllocateCommandBuffers(
     if device.is_null() || pAllocateInfo.is_null() || pCommandBuffers.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    // Forward to real ICD
+    // Prefer routing by command pool owner
+    let pool = (*pAllocateInfo).commandPool;
+    if let Some(icd) = icd_loader::icd_for_command_pool(pool) {
+        if let Some(f) = icd.allocate_command_buffers {
+            let res = f(device, pAllocateInfo, pCommandBuffers);
+            if res == VkResult::Success {
+                let count = (*pAllocateInfo).commandBufferCount as isize;
+                for i in 0..count {
+                    let cb = *pCommandBuffers.offset(i);
+                    icd_loader::register_command_buffer_icd(cb, &icd);
+                }
+            }
+            return res;
+        }
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(allocate_command_buffers) = icd.allocate_command_buffers {
             return allocate_command_buffers(device, pAllocateInfo, pCommandBuffers);
         }
     }
-    
-    // No ICD available
     VkResult::ErrorInitializationFailed
 }
 
@@ -274,8 +296,14 @@ pub unsafe extern "C" fn vkFreeCommandBuffers(
     if device.is_null() || commandPool.is_null() || pCommandBuffers.is_null() || commandBufferCount == 0 {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_pool(commandPool) {
+        if let Some(f) = icd.free_command_buffers { f(device, commandPool, commandBufferCount, pCommandBuffers); }
+        for i in 0..(commandBufferCount as isize) {
+            let cb = *pCommandBuffers.offset(i);
+            icd_loader::unregister_command_buffer(cb);
+        }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(free_command_buffers) = icd.free_command_buffers {
             free_command_buffers(device, commandPool, commandBufferCount, pCommandBuffers);
@@ -298,15 +326,14 @@ pub unsafe extern "C" fn vkBeginCommandBuffer(
     if commandBuffer.is_null() || pBeginInfo.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.begin_command_buffer { return f(commandBuffer, pBeginInfo); }
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(begin_command_buffer) = icd.begin_command_buffer {
             return begin_command_buffer(commandBuffer, pBeginInfo);
         }
     }
-    
-    // No ICD available
     VkResult::ErrorInitializationFailed
 }
 
@@ -323,15 +350,14 @@ pub unsafe extern "C" fn vkEndCommandBuffer(
     if commandBuffer.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.end_command_buffer { return f(commandBuffer); }
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(end_command_buffer) = icd.end_command_buffer {
             return end_command_buffer(commandBuffer);
         }
     }
-    
-    // No ICD available
     VkResult::ErrorInitializationFailed
 }
 
@@ -351,8 +377,10 @@ pub unsafe extern "C" fn vkCmdBindPipeline(
     if commandBuffer.is_null() || pipeline.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_bind_pipeline { f(commandBuffer, pipelineBindPoint, pipeline); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_bind_pipeline) = icd.cmd_bind_pipeline {
             cmd_bind_pipeline(commandBuffer, pipelineBindPoint, pipeline);
@@ -383,8 +411,10 @@ pub unsafe extern "C" fn vkCmdBindDescriptorSets(
     if commandBuffer.is_null() || layout.is_null() || pDescriptorSets.is_null() || descriptorSetCount == 0 {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_bind_descriptor_sets { f(commandBuffer, pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets, dynamicOffsetCount, pDynamicOffsets); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_bind_descriptor_sets) = icd.cmd_bind_descriptor_sets {
             cmd_bind_descriptor_sets(commandBuffer, pipelineBindPoint, layout, firstSet, 
@@ -413,8 +443,10 @@ pub unsafe extern "C" fn vkCmdPushConstants(
     if commandBuffer.is_null() || layout.is_null() || pValues.is_null() || size == 0 {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_push_constants { f(commandBuffer, layout, stageFlags, offset, size, pValues); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_push_constants) = icd.cmd_push_constants {
             cmd_push_constants(commandBuffer, layout, stageFlags, offset, size, pValues);
@@ -439,8 +471,10 @@ pub unsafe extern "C" fn vkCmdDispatch(
     if commandBuffer.is_null() {
         return;
     }
-    
-    // Forward to real driver
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_dispatch { f(commandBuffer, groupCountX, groupCountY, groupCountZ); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_dispatch) = icd.cmd_dispatch {
             cmd_dispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
@@ -465,8 +499,10 @@ pub unsafe extern "C" fn vkCmdDispatchIndirect(
     if commandBuffer.is_null() || buffer.is_null() {
         return;
     }
-    
-    // Forward to real driver
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_dispatch_indirect { f(commandBuffer, buffer, offset); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_dispatch_indirect) = icd.cmd_dispatch_indirect {
             cmd_dispatch_indirect(commandBuffer, buffer, offset);
@@ -499,8 +535,12 @@ pub unsafe extern "C" fn vkCmdPipelineBarrier(
     if commandBuffer.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_pipeline_barrier { f(commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
+                               memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount,
+                               pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_pipeline_barrier) = icd.cmd_pipeline_barrier {
             cmd_pipeline_barrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
@@ -530,8 +570,10 @@ pub unsafe extern "C" fn vkCmdCopyBuffer(
        regionCount == 0 || pRegions.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_copy_buffer { f(commandBuffer, srcBuffer, dstBuffer, regionCount, pRegions); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_copy_buffer) = icd.cmd_copy_buffer {
             cmd_copy_buffer(commandBuffer, srcBuffer, dstBuffer, regionCount, pRegions);
@@ -555,8 +597,10 @@ pub unsafe extern "C" fn vkCmdSetEvent(
     if commandBuffer.is_null() || event.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_set_event { f(commandBuffer, event, stageMask); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_set_event) = icd.cmd_set_event {
             cmd_set_event(commandBuffer, event, stageMask);
@@ -580,8 +624,10 @@ pub unsafe extern "C" fn vkCmdResetEvent(
     if commandBuffer.is_null() || event.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_reset_event { f(commandBuffer, event, stageMask); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_reset_event) = icd.cmd_reset_event {
             cmd_reset_event(commandBuffer, event, stageMask);
@@ -615,8 +661,12 @@ pub unsafe extern "C" fn vkCmdWaitEvents(
     if commandBuffer.is_null() || eventCount == 0 || pEvents.is_null() {
         return;
     }
-    
-    // Forward to real ICD
+    if let Some(icd) = icd_loader::icd_for_command_buffer(commandBuffer) {
+        if let Some(f) = icd.cmd_wait_events { f(commandBuffer, eventCount, pEvents, srcStageMask, dstStageMask,
+                          memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount,
+                          pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers); }
+        return;
+    }
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(cmd_wait_events) = icd.cmd_wait_events {
             cmd_wait_events(commandBuffer, eventCount, pEvents, srcStageMask, dstStageMask,
