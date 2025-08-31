@@ -1,0 +1,125 @@
+# Kronos Compute Multi-GPU Guide for Sporkle Claude
+
+## Quick Start
+
+To enable multi-GPU support in Kronos Compute v0.2.0-rc2:
+
+```bash
+export KRONOS_AGGREGATE_ICD=1
+./your_application
+```
+
+## What's New in v0.2.0-rc2
+
+The multi-ICD enumeration bug has been fixed! You should now be able to discover all your GPUs (AMD integrated + 7900 XTX) without needing the `VK_ICD_FILENAMES` workaround.
+
+## Environment Variables
+
+### Required for Multi-GPU
+- `KRONOS_AGGREGATE_ICD=1` - Enables aggregated mode to enumerate devices from all ICDs
+
+### Optional Configuration
+- `KRONOS_PREFER_HARDWARE=1` (default) - Filters out software renderers like llvmpipe
+- `KRONOS_PREFER_HARDWARE=0` - Include software renderers in enumeration
+- `RUST_LOG=kronos_compute::implementation::icd_loader=info` - Enable debug logging
+
+## Testing Multi-GPU Discovery
+
+### 1. List Available ICDs
+```bash
+cargo run --example icd_select -- list
+```
+
+Expected output should show all hardware ICDs:
+```
+Found 6 ICD(s):
+[0] /usr/lib/x86_64-linux-gnu/libvulkan_radeon.so (hardware)
+[1] /usr/lib/x86_64-linux-gnu/libvulkan_intel.so (hardware)
+...
+```
+
+### 2. Test Aggregated Mode
+```bash
+KRONOS_AGGREGATE_ICD=1 cargo run --example icd_select -- list
+```
+
+This should show the same ICDs are available in aggregated mode.
+
+### 3. Enumerate Physical Devices
+With aggregated mode enabled, your application should now see all GPUs:
+
+```rust
+// Your conv2d application should now enumerate both:
+// - AMD Radeon Graphics (integrated)
+// - AMD Radeon RX 7900 XTX (discrete)
+```
+
+## How It Works
+
+In aggregated mode, Kronos Compute:
+1. Discovers all available Vulkan ICDs on the system
+2. Creates instances with each ICD
+3. Aggregates physical devices from all ICDs into a single enumeration
+4. Routes Vulkan calls to the appropriate ICD based on handle provenance
+
+## Troubleshooting
+
+### Still Only Seeing llvmpipe?
+1. Ensure you're using v0.2.0-rc2 or later
+2. Check that `KRONOS_AGGREGATE_ICD=1` is set
+3. Enable logging: `RUST_LOG=kronos_compute::implementation::icd_loader=info`
+
+### No Devices Found?
+- The fix stores all ICDs correctly, but physical device enumeration depends on the ICDs actually returning devices
+- Check that your Vulkan drivers are properly installed
+- Try with `VK_ICD_FILENAMES` as a comparison to ensure drivers work
+
+### Performance Considerations
+- Aggregated mode has minimal overhead for device enumeration
+- Once a device is selected, all subsequent calls go directly to that device's ICD
+- No performance impact on compute operations
+
+## Example Usage
+
+```rust
+use kronos_compute::api::ComputeContext;
+
+// Enable aggregated mode before creating context
+std::env::set_var("KRONOS_AGGREGATE_ICD", "1");
+
+// Create context - will enumerate all GPUs
+let ctx = ComputeContext::builder()
+    .app_name("Multi-GPU Conv2D")
+    .prefer_discrete_gpu()  // Automatically select 7900 XTX
+    .build()?;
+
+// Or manually select by index
+let ctx = ComputeContext::builder()
+    .app_name("Multi-GPU Conv2D")
+    .prefer_device_index(1)  // Select second GPU (likely 7900 XTX)
+    .build()?;
+```
+
+## Verification
+
+To verify the fix is working:
+
+1. Count ICDs stored:
+   ```bash
+   KRONOS_AGGREGATE_ICD=1 RUST_LOG=kronos_compute=debug cargo test aggregated_mode_test -- --nocapture
+   ```
+   
+   Should show: `ALL_ICDS contains 6 ICDs` (or similar based on your system)
+
+2. The workaround should no longer be needed:
+   ```bash
+   # This should work WITHOUT setting VK_ICD_FILENAMES
+   KRONOS_AGGREGATE_ICD=1 ./your_conv2d_app
+   ```
+
+## Feedback
+
+If you encounter any issues with multi-GPU enumeration in v0.2.0-rc2, please report them with:
+- Output of `cargo run --example icd_select -- list`
+- Your GPU configuration
+- Any error messages with `RUST_LOG=kronos_compute=debug` enabled
