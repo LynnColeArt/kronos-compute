@@ -1,10 +1,19 @@
 //! Safe buffer management with automatic memory allocation
 
 use super::*;
-use crate::*; // Import all functions from the crate root
+use crate::*; // Need all the type definitions
 
-// When implementation feature is enabled, these should come from implementation module
-// Otherwise they would need to be provided by linking to an external Vulkan library
+// Explicitly import Vulkan functions from implementation when available
+// This ensures we use Kronos's multi-ICD aware implementation
+#[cfg(feature = "implementation")]
+use crate::implementation::{
+    vkCreateBuffer, vkDestroyBuffer, vkGetBufferMemoryRequirements, 
+    vkBindBufferMemory, vkAllocateMemory, vkFreeMemory,
+    vkMapMemory, vkUnmapMemory, vkCmdCopyBuffer,
+};
+
+// If implementation feature is not enabled, these functions must come from
+// linking to an external Vulkan library
 use std::marker::PhantomData;
 use std::ptr;
 use std::slice;

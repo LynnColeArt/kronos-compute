@@ -2,17 +2,18 @@
 
 ## Quick Start
 
-To enable multi-GPU support in Kronos Compute v0.2.0-rc8:
+To enable multi-GPU support in Kronos Compute v0.2.0-rc9:
 
 ```bash
 export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc8 🍬
+## What's New in v0.2.0-rc9 🍬
 
-- **v0.2.0-rc8**: API layer logging! Shows "API layer calling vkCreateBuffer" 
-- **v0.2.0-rc7**: Entry point logging! Shows "=== vkCreateBuffer called ===" if reached
+- **v0.2.0-rc9**: FIXED! API now explicitly uses implementation functions for multi-ICD support
+- **v0.2.0-rc8**: API layer logging revealed calls were bypassing implementation 
+- **v0.2.0-rc7**: Entry point logging confirmed implementation wasn't being called
 - **v0.2.0-rc6**: Enhanced debug logging! Shows why create_buffer might fail
 - **v0.2.0-rc5**: Buffer creation attempted fix - handles device-ICD mapping in aggregated mode
 - **v0.2.0-rc4**: Multi-GPU WORKS! Fixed instance-level function loading in aggregated mode

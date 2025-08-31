@@ -1,8 +1,17 @@
 //! Main entry point for Kronos Compute
 
 use super::*;
-use crate::*; // Import all functions from the crate root
+use crate::*; // Need all the type definitions
 use crate::implementation::initialize_kronos;
+
+// Explicitly import Vulkan functions from implementation when available
+#[cfg(feature = "implementation")]
+use crate::implementation::{
+    vkCreateInstance, vkDestroyInstance, vkEnumeratePhysicalDevices,
+    vkGetPhysicalDeviceProperties, vkGetPhysicalDeviceMemoryProperties,
+    vkGetPhysicalDeviceQueueFamilyProperties,
+    vkCreateDevice, vkDestroyDevice, vkGetDeviceQueue,
+};
 use std::ffi::CString;
 use std::ptr;
 use std::sync::{Arc, Mutex};

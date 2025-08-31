@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc9] - 2025-08-31
+
+### Fixed
+- API layer now explicitly imports Vulkan functions from implementation module
+- Ensures Kronos's multi-ICD aware implementations are used instead of system Vulkan
+- Buffer and context modules now use explicit imports with `#[cfg(feature = "implementation")]`
+
+### Technical Details
+The issue was that when using `crate::*`, the API might get Vulkan functions from
+system libraries if the application links to both Kronos and system Vulkan. Now
+the API explicitly imports functions from the implementation module when the
+implementation feature is enabled, ensuring our multi-ICD routing is used.
+
 ## [0.2.0-rc8] - 2025-08-31
 
 ### Added
@@ -209,7 +222,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc8...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc9...HEAD
+[0.2.0-rc9]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc8...v0.2.0-rc9
 [0.2.0-rc8]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc7...v0.2.0-rc8
 [0.2.0-rc7]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc6...v0.2.0-rc7
 [0.2.0-rc6]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc5...v0.2.0-rc6

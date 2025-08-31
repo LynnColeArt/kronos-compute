@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 8 (v0.2.0-rc8): API layer logging confirms routing path! 🍬 Tracks the call flow from API through to implementation.**
+> **📦 Release Candidate 9 (v0.2.0-rc9): Fixed API to explicitly use implementation functions! 🍬 Ensures multi-ICD aware functions are called.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
