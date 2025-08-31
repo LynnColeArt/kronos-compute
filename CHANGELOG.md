@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc4] - 2025-08-31
+
+### Fixed
+- Aggregated mode now properly loads instance-level functions after creating instances
+- Physical device enumeration now works correctly in aggregated mode
+- Multi-GPU discovery now works without VK_ICD_FILENAMES workaround
+
+### Technical Details
+After creating instances with each ICD in aggregated mode, we now load the instance-level
+functions (like vkEnumeratePhysicalDevices) for each ICD. This was the missing piece that
+prevented device enumeration from working.
+
 ## [0.2.0-rc3] - 2025-08-31
 
 ### Fixed
@@ -137,7 +149,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc3...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc4...HEAD
+[0.2.0-rc4]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc3...v0.2.0-rc4
 [0.2.0-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc2...v0.2.0-rc3
 [0.2.0-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc1...v0.2.0-rc2
 [0.2.0-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc3...v0.2.0-rc1

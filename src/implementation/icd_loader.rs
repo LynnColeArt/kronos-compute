@@ -1103,3 +1103,8 @@ pub unsafe fn update_instance_functions(instance: VkInstance) -> Result<(), IcdE
 pub unsafe fn update_device_functions(device: VkDevice) -> Result<(), IcdError> {
     replace_icd(|icd| load_device_functions_inner(icd, device))
 }
+
+/// Load instance functions for a specific ICD (used in aggregated mode)
+pub unsafe fn load_instance_functions_for_icd(icd: &mut LoadedICD, instance: VkInstance) -> Result<(), IcdError> {
+    load_instance_functions_inner(icd, instance)
+}

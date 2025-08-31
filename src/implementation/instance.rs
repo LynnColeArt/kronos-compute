@@ -4,6 +4,7 @@ use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
 use std::ptr;
+use std::sync::Arc;
 
 /// Create a Kronos instance
 // SAFETY: This function is called from C code. Caller must ensure:
@@ -25,12 +26,18 @@ pub unsafe extern "C" fn vkCreateInstance(
     if crate::implementation::icd_loader::aggregated_mode_enabled() {
         let all = crate::implementation::icd_loader::discover_and_load_all_icds();
         let mut inners = Vec::new();
-        for icd in all {
-            if let Some(create_instance_fn) = icd.create_instance {
+        for icd_arc in all {
+            if let Some(create_instance_fn) = icd_arc.create_instance {
                 let mut inner_inst = VkInstance::NULL;
                 let res = create_instance_fn(pCreateInfo, pAllocator, &mut inner_inst);
                 if res == VkResult::Success && !inner_inst.is_null() {
-                    inners.push((icd.clone(), inner_inst));
+                    // Clone the ICD and load instance functions
+                    let mut icd_copy = (*icd_arc).clone();
+                    if let Err(e) = crate::implementation::icd_loader::load_instance_functions_for_icd(&mut icd_copy, inner_inst) {
+                        log::warn!("Failed to load instance functions for ICD: {:?}", e);
+                        // Still include it, some functions might work
+                    }
+                    inners.push((Arc::new(icd_copy), inner_inst));
                 }
             }
         }

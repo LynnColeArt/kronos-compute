@@ -1,6 +1,6 @@
 [package]
 name = "kronos-compute"
-version = "0.2.0-rc3"
+version = "0.2.0-rc4"
 edition = "2021"
 rust-version = "1.70"
 authors = ["Lynn Cole <lynn@lynncole.art>"]
