@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3.0-rc1] - 2025-08-31
+
+### Fixed
+- Fixed Arc<LoadedICD> lifetime issue that caused command pool creation to fail
+- Device-specific ICD instances are now properly kept alive after device registration
+- Safe API now works correctly in both single-ICD and aggregated modes
+- Fixed VkQueueFamilyProperties initialization in safe API (no Default trait)
+- Fixed memory corruption when using AMD driver (double-free issue)
+- Fixed safe API hang in aggregated mode - now successfully creates ComputeContext
+- Fixed safe API crash when using prefer_icd_path() - function pointers now properly loaded
+
+### Changed
+- Added DEVICE_ICDS static registry to maintain Arc references to device ICDs
+- Device registration now stores the Arc to prevent immediate deallocation
+- Removed Drop implementation for LoadedICD - library handles are intentionally leaked
+- Improved logging throughout device enumeration and property retrieval
+- get_icd() now always returns the main ICD from ICD_LOADER to ensure proper initialization
+
+### Technical Details
+Three major issues were fixed:
+1. **Arc Lifetime**: `register_device_icd` was only storing a weak reference, but the Arc
+   was dropped after device creation. Now stores Arc in DEVICE_ICDS registry.
+2. **Memory Corruption**: LoadedICD had no Drop impl but comments suggested it did. 
+   Library handles are now intentionally leaked as function pointers may still be in use.
+3. **Path Preference Crash**: get_icd() was returning ICDs from ALL_ICDS that hadn't loaded
+   instance functions. Now always returns the main ICD which has functions loaded after instance creation.
+
+### Known Issues
+- ICD preference selection doesn't work dynamically after initialization (by design)
+- Intel Haswell, Nouveau, and other ICDs return 0 devices (expected if no compatible hardware)
+- ICD index mismatch between available_icds() and initialization order
+
 ## [0.2.0-rc12] - 2025-08-31
 
 ### Fixed

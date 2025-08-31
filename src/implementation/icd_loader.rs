@@ -178,12 +178,16 @@ pub struct LoadedICD {
 }
 
 // SAFETY: LoadedICD is safe to send between threads because:
-// 1. The library handle is only used for dlclose in Drop
+// 1. The library handle is intentionally leaked (never closed)
 // 2. Function pointers are immutable once loaded
 // 3. PathBuf is already Send+Sync
 // 4. No mutable state is shared between threads
 unsafe impl Send for LoadedICD {}
 unsafe impl Sync for LoadedICD {}
+
+// NOTE: No Drop implementation - we intentionally leak the library handles
+// because function pointers from the library may still be in use elsewhere.
+// This is standard practice for dynamically loaded Vulkan ICDs.
 
 /// Public info about a loadable ICD
 #[derive(Debug, Clone)]
@@ -223,6 +227,8 @@ lazy_static::lazy_static! {
     static ref ALL_ICDS: Mutex<Vec<Arc<LoadedICD>>> = Mutex::new(Vec::new());
     static ref META_INSTANCES: Mutex<HashMap<u64, Vec<(Arc<LoadedICD>, VkInstance)>>> = Mutex::new(HashMap::new());
     static ref NEXT_META_INSTANCE: Mutex<u64> = Mutex::new(0xBEEF_0000_0000_0000);
+    // Device-specific ICDs (keeps them alive)
+    static ref DEVICE_ICDS: Mutex<HashMap<u64, Arc<LoadedICD>>> = Mutex::new(HashMap::new());
 }
 
 pub fn aggregated_mode_enabled() -> bool {
@@ -466,12 +472,15 @@ lazy_static::lazy_static! {
 }
 
 pub fn set_preferred_icd_path<P: Into<PathBuf>>(path: P) {
+    let path_buf = path.into();
+    log::info!("Setting preferred ICD path: {:?}", path_buf);
     if let Ok(mut pref) = PREFERRED_ICD.lock() {
-        *pref = Some(IcdPreference::Path(path.into()));
+        *pref = Some(IcdPreference::Path(path_buf));
     }
 }
 
 pub fn set_preferred_icd_index(index: usize) {
+    log::info!("Setting preferred ICD index: {}", index);
     if let Ok(mut pref) = PREFERRED_ICD.lock() {
         *pref = Some(IcdPreference::Index(index));
     }
@@ -508,7 +517,25 @@ pub fn register_physical_device_icd(phys: VkPhysicalDevice, icd: &Arc<LoadedICD>
     let _ = REG_PHYS_DEVS.lock().map(|mut m| { m.insert(phys.as_raw(), Arc::downgrade(icd)); });
 }
 pub fn register_device_icd(device: VkDevice, icd: &Arc<LoadedICD>) {
-    let _ = REG_DEVICES.lock().map(|mut m| { m.insert(device.as_raw(), Arc::downgrade(icd)); });
+    let device_raw = device.as_raw();
+    log::debug!("Registering device {} with ICD", device_raw);
+    
+    // Store the Arc to keep the ICD alive
+    if let Ok(mut device_icds) = DEVICE_ICDS.lock() {
+        device_icds.insert(device_raw, icd.clone());
+        log::debug!("Stored device ICD Arc for device {}", device_raw);
+    }
+    
+    // Register the weak reference for lookups
+    match REG_DEVICES.lock() {
+        Ok(mut m) => {
+            m.insert(device_raw, Arc::downgrade(icd));
+            log::debug!("Device {} registered successfully", device_raw);
+        }
+        Err(e) => {
+            log::error!("Failed to lock REG_DEVICES: {:?}", e);
+        }
+    }
 }
 pub fn register_queue_icd(queue: VkQueue, icd: &Arc<LoadedICD>) {
     let _ = REG_QUEUES.lock().map(|mut m| { m.insert(queue.as_raw(), Arc::downgrade(icd)); });
@@ -522,7 +549,11 @@ pub fn register_command_buffer_icd(cb: VkCommandBuffer, icd: &Arc<LoadedICD>) {
 
 pub fn unregister_instance(instance: VkInstance) { let _ = REG_INSTANCES.lock().map(|mut m| { m.remove(&instance.as_raw()); }); }
 pub fn unregister_physical_device(phys: VkPhysicalDevice) { let _ = REG_PHYS_DEVS.lock().map(|mut m| { m.remove(&phys.as_raw()); }); }
-pub fn unregister_device(device: VkDevice) { let _ = REG_DEVICES.lock().map(|mut m| { m.remove(&device.as_raw()); }); }
+pub fn unregister_device(device: VkDevice) { 
+    let device_raw = device.as_raw();
+    let _ = REG_DEVICES.lock().map(|mut m| { m.remove(&device_raw); }); 
+    let _ = DEVICE_ICDS.lock().map(|mut m| { m.remove(&device_raw); });
+}
 pub fn unregister_queue(queue: VkQueue) { let _ = REG_QUEUES.lock().map(|mut m| { m.remove(&queue.as_raw()); }); }
 pub fn unregister_command_pool(pool: VkCommandPool) { let _ = REG_CMD_POOLS.lock().map(|mut m| { m.remove(&pool.as_raw()); }); }
 pub fn unregister_command_buffer(cb: VkCommandBuffer) { let _ = REG_CMD_BUFFERS.lock().map(|mut m| { m.remove(&cb.as_raw()); }); }
@@ -536,8 +567,28 @@ pub fn icd_for_physical_device(phys: VkPhysicalDevice) -> Option<Arc<LoadedICD>>
         .or_else(|| icd_for_instance(VkInstance::NULL))
 }
 pub fn icd_for_device(device: VkDevice) -> Option<Arc<LoadedICD>> {
-    REG_DEVICES.lock().ok()?.get(&device.as_raw()).and_then(upgrade_icd)
-        .or_else(|| get_icd())
+    let device_raw = device.as_raw();
+    log::trace!("Looking up ICD for device {:?} (raw: {})", device, device_raw);
+    
+    if let Ok(guard) = REG_DEVICES.lock() {
+        log::trace!("REG_DEVICES has {} entries", guard.len());
+        if let Some(weak_icd) = guard.get(&device_raw) {
+            log::trace!("Found weak reference for device {}", device_raw);
+            if let Some(arc_icd) = upgrade_icd(weak_icd) {
+                log::trace!("Successfully upgraded weak reference to Arc");
+                return Some(arc_icd);
+            } else {
+                log::warn!("Weak reference for device {} could not be upgraded (ICD dropped?)", device_raw);
+            }
+        } else {
+            log::trace!("Device {} not found in registry", device_raw);
+        }
+    } else {
+        log::error!("Failed to lock REG_DEVICES");
+    }
+    
+    log::trace!("Device not found in registry, using fallback");
+    get_icd()
 }
 pub fn icd_for_queue(queue: VkQueue) -> Option<Arc<LoadedICD>> {
     REG_QUEUES.lock().ok()?.get(&queue.as_raw()).and_then(upgrade_icd)
@@ -925,6 +976,10 @@ pub unsafe fn load_device_functions_inner(icd: &mut LoadedICD, device: VkDevice)
     // Timeline semaphore functions (optional)
     load_fn!(wait_semaphores, "vkWaitSemaphores");
     
+    log::debug!("Device functions loaded - create_buffer: {}, create_command_pool: {}",
+        icd.create_buffer.is_some(),
+        icd.create_command_pool.is_some());
+    
     Ok(())
 }
 
@@ -1050,10 +1105,34 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
                 }
             }
             IcdPreference::Index(i) => {
-                if i < loaded_icds.len() {
-                    loaded_icds.into_iter().nth(i).unwrap()
+                log::info!("Applying ICD preference: index {} (from available_icds order)", i);
+                
+                // The index refers to the order in available_icds(), not loaded_icds
+                // We need to find the matching ICD by path from ALL_ICDS
+                if let Ok(all_icds) = ALL_ICDS.lock() {
+                    log::info!("ALL_ICDS contains {} ICDs:", all_icds.len());
+                    for (idx, icd) in all_icds.iter().enumerate() {
+                        log::info!("  [{}] {}", idx, icd.library_path.display());
+                    }
+                    
+                    if let Some(target_icd) = all_icds.get(i) {
+                        let target_path = &target_icd.library_path;
+                        log::info!("Selected index {} points to: {}", i, target_path.display());
+                        
+                        // Find this ICD in loaded_icds
+                        if let Some((idx, _)) = loaded_icds.iter().enumerate()
+                            .find(|(_, (icd, _, _))| &icd.library_path == target_path) {
+                            loaded_icds.into_iter().nth(idx).unwrap()
+                        } else {
+                            warn!("Preferred ICD not found in loaded set; falling back to default");
+                            loaded_icds.into_iter().next().unwrap()
+                        }
+                    } else {
+                        warn!("Preferred ICD index {} out of range ({}); falling back to default", i, all_icds.len());
+                        loaded_icds.into_iter().next().unwrap()
+                    }
                 } else {
-                    warn!("Preferred ICD index {} out of range ({}); falling back to default", i, loaded_icds.len());
+                    warn!("Could not access ALL_ICDS; falling back to default");
                     loaded_icds.into_iter().next().unwrap()
                 }
             }
@@ -1085,7 +1164,38 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
 
 /// Get the loaded ICD (shared clone)
 pub fn get_icd() -> Option<Arc<LoadedICD>> {
+    // Always use the main ICD from ICD_LOADER
+    // This ensures we get the ICD with properly loaded instance/device functions
+    // Preferences are already applied during initialization in initialize_icd_loader()
+    log::trace!("Using main ICD from ICD_LOADER");
     ICD_LOADER.lock().ok()?.as_ref().cloned()
+}
+
+/// Get a specific ICD based on preference
+fn get_preferred_icd(pref: &IcdPreference) -> Option<Arc<LoadedICD>> {
+    let all_icds = ALL_ICDS.lock().ok()?;
+    log::debug!("Looking for preferred ICD among {} loaded ICDs", all_icds.len());
+    
+    match pref {
+        IcdPreference::Path(want) => {
+            log::debug!("Looking for ICD with path: {:?}", want);
+            let result = all_icds.iter()
+                .find(|icd| &icd.library_path == want)
+                .cloned();
+            if result.is_none() {
+                log::warn!("Preferred ICD path not found: {:?}", want);
+            }
+            result
+        }
+        IcdPreference::Index(i) => {
+            log::debug!("Looking for ICD at index: {}", i);
+            let result = all_icds.get(*i).cloned();
+            if result.is_none() {
+                log::warn!("Preferred ICD index {} out of range (have {} ICDs)", i, all_icds.len());
+            }
+            result
+        }
+    }
 }
 
 /// Apply a mutation to the current ICD by replacing it with an updated copy

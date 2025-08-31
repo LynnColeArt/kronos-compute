@@ -53,7 +53,8 @@ impl ComputeContext {
     pub(super) fn new_with_config(config: ContextConfig) -> Result<Self> {
         log::info!("[SAFE API] ComputeContext::new_with_config() called");
         unsafe {
-            // Apply preferred ICD selection (process-wide for now)
+            // Apply preferred ICD selection BEFORE initialization
+            // This is crucial - preferences must be set before initialize_kronos()
             log::info!("[SAFE API] Applying ICD preferences");
             if let Some(ref p) = config.preferred_icd_path {
                 log::info!("[SAFE API] Setting preferred ICD path: {:?}", p);
@@ -82,6 +83,8 @@ impl ComputeContext {
             log::info!("[SAFE API] Finding compute-capable device");
             let (physical_device, queue_family_index) = Self::find_compute_device(instance)?;
             log::info!("[SAFE API] Found device: {:?}, queue family: {}", physical_device, queue_family_index);
+            
+            log::info!("[SAFE API] find_compute_device returned successfully");
             
             // Get device properties
             log::info!("[SAFE API] Getting device properties");
@@ -250,14 +253,15 @@ impl ComputeContext {
         // Collect all devices with compute support and their properties
         let mut candidates = Vec::new();
         
-        for device in devices {
-            let queue_family = Self::find_compute_queue_family(device)?;
+        for (dev_idx, device) in devices.iter().enumerate() {
+            log::info!("[SAFE API] Checking device {} for compute support", dev_idx);
+            let queue_family = Self::find_compute_queue_family(*device)?;
             if let Some(index) = queue_family {
                 // Get device properties to determine device type
                 let mut properties = VkPhysicalDeviceProperties::default();
-                vkGetPhysicalDeviceProperties(device, &mut properties);
+                vkGetPhysicalDeviceProperties(*device, &mut properties);
                 
-                candidates.push((device, index, properties.deviceType));
+                candidates.push((*device, index, properties.deviceType));
             }
         }
         
@@ -278,7 +282,8 @@ impl ComputeContext {
         });
         
         // Return the best device
-        let (device, queue_index, _) = candidates[0];
+        let (device, queue_index, device_type) = candidates[0];
+        log::info!("[SAFE API] Selected device with queue index {}, type {:?}", queue_index, device_type);
         Ok((device, queue_index))
     }
     
@@ -292,23 +297,34 @@ impl ComputeContext {
     /// - Invalid device handle will cause undefined behavior
     /// - The device must remain valid during the function execution
     unsafe fn find_compute_queue_family(device: VkPhysicalDevice) -> Result<Option<u32>> {
+        log::info!("[SAFE API] Finding queue families for device {:?}", device);
         let mut queue_family_count = 0;
+        log::info!("[SAFE API] Calling vkGetPhysicalDeviceQueueFamilyProperties (count query)...");
         vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_family_count, ptr::null_mut());
+        log::info!("[SAFE API] Device has {} queue families", queue_family_count);
         
-        let mut queue_families = vec![VkQueueFamilyProperties {
-            queueFlags: VkQueueFlags::empty(),
-            queueCount: 0,
-            timestampValidBits: 0,
-            minImageTransferGranularity: VkExtent3D { width: 0, height: 0, depth: 0 },
-        }; queue_family_count as usize];
+        let mut queue_families = vec![
+            VkQueueFamilyProperties {
+                queueFlags: VkQueueFlags::empty(),
+                queueCount: 0,
+                timestampValidBits: 0,
+                minImageTransferGranularity: VkExtent3D { width: 0, height: 0, depth: 0 },
+            };
+            queue_family_count as usize
+        ];
+        log::info!("[SAFE API] Getting queue family properties...");
         vkGetPhysicalDeviceQueueFamilyProperties(device, &mut queue_family_count, queue_families.as_mut_ptr());
+        log::info!("[SAFE API] Got queue family properties, checking for compute support");
         
         for (index, family) in queue_families.iter().enumerate() {
+            log::info!("[SAFE API] Queue family {}: flags={:?}", index, family.queueFlags);
             if family.queueFlags.contains(VkQueueFlags::COMPUTE) {
+                log::info!("[SAFE API] Found compute queue at index {}", index);
                 return Ok(Some(index as u32));
             }
         }
         
+        log::info!("[SAFE API] No compute queue family found");
         Ok(None)
     }
     
@@ -425,9 +441,12 @@ impl ComputeContext {
         };
         
         let mut pool = VkCommandPool::NULL;
+        log::info!("[SAFE API] Calling vkCreateCommandPool with device {:?}, queue family {}", device, queue_family_index);
         let result = vkCreateCommandPool(device, &pool_info, ptr::null(), &mut pool);
+        log::info!("[SAFE API] vkCreateCommandPool returned: {:?}", result);
         
         if result != VkResult::Success {
+            log::error!("[SAFE API] Failed to create command pool: {:?}", result);
             return Err(KronosError::from(result));
         }
         

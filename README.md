@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 12 (v0.2.0-rc12): Safe API progress - NULL features fix, but hangs in aggregated mode 🍬**
+> **📦 Release Candidate 13 (v0.2.0-rc13): Safe API fully functional - Fixed Arc<LoadedICD> lifetime and aggregated mode 🎯**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)

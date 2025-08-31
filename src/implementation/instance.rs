@@ -57,7 +57,11 @@ pub unsafe extern "C" fn vkCreateInstance(
             
             // If successful, load instance functions
             if result == VkResult::Success {
-                let _ = super::icd_loader::update_instance_functions(*pInstance);
+                log::info!("[vkCreateInstance] Single-ICD mode: Loading instance functions for instance {:?}", *pInstance);
+                match super::icd_loader::update_instance_functions(*pInstance) {
+                    Ok(()) => log::info!("[vkCreateInstance] Successfully loaded instance functions"),
+                    Err(e) => log::error!("[vkCreateInstance] Failed to load instance functions: {:?}", e),
+                }
             }
             
             return result;
@@ -156,11 +160,18 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     }
     
     // Forward to real ICD (single)
+    log::debug!("[vkEnumeratePhysicalDevices] Single-ICD mode, forwarding to ICD");
     if let Some(icd) = super::forward::get_icd_if_enabled() {
+        log::debug!("[vkEnumeratePhysicalDevices] Got ICD, checking enumerate function");
         if let Some(enumerate_physical_devices) = icd.enumerate_physical_devices {
-            return enumerate_physical_devices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+            log::debug!("[vkEnumeratePhysicalDevices] Calling ICD's enumerate function");
+            let result = enumerate_physical_devices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+            if pPhysicalDevices.is_null() {
+                log::info!("[vkEnumeratePhysicalDevices] Query returned {} devices", unsafe { *pPhysicalDeviceCount });
+            }
+            return result;
         } else {
-            log::warn!("ICD loaded but enumerate_physical_devices function pointer is null");
+            log::warn!("[vkEnumeratePhysicalDevices] ICD loaded but enumerate_physical_devices function pointer is null");
         }
     } else {
         log::warn!("No ICD available for enumerate_physical_devices");
@@ -179,17 +190,31 @@ pub unsafe extern "C" fn vkGetPhysicalDeviceProperties(
     physicalDevice: VkPhysicalDevice,
     pProperties: *mut VkPhysicalDeviceProperties,
 ) {
+    log::debug!("[vkGetPhysicalDeviceProperties] Called with device {:?}", physicalDevice);
     if physicalDevice.is_null() || pProperties.is_null() {
+        log::error!("[vkGetPhysicalDeviceProperties] Null pointer provided");
         return;
     }
     // Route by owning ICD if known
     if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
-        if let Some(f) = icd.get_physical_device_properties { f(physicalDevice, pProperties); }
+        log::debug!("[vkGetPhysicalDeviceProperties] Found ICD for device, routing call");
+        if let Some(f) = icd.get_physical_device_properties { 
+            f(physicalDevice, pProperties); 
+        } else {
+            log::error!("[vkGetPhysicalDeviceProperties] ICD has no get_physical_device_properties function!");
+        }
         return;
     }
+    log::debug!("[vkGetPhysicalDeviceProperties] No ICD found for device, using fallback");
     // Fallback to single ICD
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(f) = icd.get_physical_device_properties { f(physicalDevice, pProperties); }
+        if let Some(f) = icd.get_physical_device_properties { 
+            f(physicalDevice, pProperties); 
+        } else {
+            log::error!("[vkGetPhysicalDeviceProperties] Fallback ICD has no get_physical_device_properties function!");
+        }
+    } else {
+        log::error!("[vkGetPhysicalDeviceProperties] No fallback ICD available!");
     }
 }
 
@@ -224,11 +249,24 @@ pub unsafe extern "C" fn vkGetPhysicalDeviceQueueFamilyProperties(
     if physicalDevice.is_null() || pQueueFamilyPropertyCount.is_null() {
         return;
     }
+    // Try to route by physical device ownership first
     if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
-        if let Some(f) = icd.get_physical_device_queue_family_properties { f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); }
+        log::debug!("[vkGetPhysicalDeviceQueueFamilyProperties] Found ICD for physical device");
+        if let Some(f) = icd.get_physical_device_queue_family_properties { 
+            f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); 
+        }
         return;
     }
+    // Fallback to single ICD
+    log::debug!("[vkGetPhysicalDeviceQueueFamilyProperties] Using fallback single ICD");
     if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(f) = icd.get_physical_device_queue_family_properties { f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); }
+        if let Some(f) = icd.get_physical_device_queue_family_properties { 
+            log::debug!("[vkGetPhysicalDeviceQueueFamilyProperties] Calling ICD function");
+            f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); 
+        } else {
+            log::warn!("[vkGetPhysicalDeviceQueueFamilyProperties] Function pointer is null");
+        }
+    } else {
+        log::warn!("[vkGetPhysicalDeviceQueueFamilyProperties] No ICD available");
     }
 }

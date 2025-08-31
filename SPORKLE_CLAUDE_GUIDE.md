@@ -9,8 +9,9 @@ export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc12 🍬
+## What's New in v0.2.0-rc13 🎯
 
+- **v0.2.0-rc13**: Safe API FULLY WORKING! Fixed Arc<LoadedICD> lifetime issue, works in single & aggregated modes!
 - **v0.2.0-rc12**: Safe API progress! Fixed ErrorFeatureNotPresent, but hangs in aggregated mode
 - **v0.2.0-rc11**: Safe API crash fixed! Added comprehensive logging, but device enumeration issues remain
 - **v0.2.0-rc10**: DIAGNOSTIC - Shows "KRONOS vkCreateBuffer called (v0.2.0-rc10)" if using correct implementation
