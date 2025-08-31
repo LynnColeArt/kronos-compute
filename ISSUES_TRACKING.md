@@ -123,6 +123,27 @@ export VK_ICD_FILENAMES=/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so
 
 ---
 
+#### 5. Safe API Pipeline Creation Crash
+**Status**: ✅ Fixed in v0.2.3-rc2  
+**Priority**: High  
+**First Observed**: v0.2.3-rc1 (reported by Sporkle Claude)  
+
+**Symptoms**:
+- Safe API works for context creation, buffer allocation, mapping/unmapping
+- Crashes during pipeline creation in libvulkan_radeon.so
+- Indicates calls were routing to system Vulkan instead of Kronos
+
+**Root Cause**:
+- After creating a device through the ICD, the safe API wasn't registering it
+- When vkCreateShaderModule was called, it couldn't find the ICD for the device
+- Falls back to forwarding, which doesn't work properly
+
+**Resolution**:
+- Added register_device_icd() and register_queue_icd() calls after device creation
+- Now pipeline/shader functions can correctly route to the ICD that created the device
+
+---
+
 ### Medium Priority Issues
 
 #### 5. Intel Haswell Returns 0 Devices
@@ -163,6 +184,14 @@ let descriptor_pool = VkDescriptorPool::NULL;
 ---
 
 ### Fixed Issues
+
+#### ✅ Safe API Pipeline Creation Routing to System Vulkan
+**Status**: Fixed in v0.2.3-rc2  
+**Resolution**: Added device/queue registration with ICD after creation in safe API
+
+#### ✅ Safe API Crashes in Path Selection Mode  
+**Status**: Fixed in v0.2.3-rc1  
+**Resolution**: Fixed get_icd() to always return properly initialized ICD
 
 #### ✅ Safe API Hangs in Aggregated Mode
 **Status**: Fixed in v0.2.0-rc13  

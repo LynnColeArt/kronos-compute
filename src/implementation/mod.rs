@@ -11,12 +11,12 @@ pub mod buffer;
 pub mod pipeline;
 pub mod descriptor;
 pub mod sync;
-pub mod icd_loader;
-pub mod forward;
-pub mod persistent_descriptors;
-pub mod barrier_policy;
-pub mod timeline_batching;
-pub mod pool_allocator;
+// REMOVED: pub mod icd_loader;
+// REMOVED: pub mod forward;
+// REMOVED: pub mod persistent_descriptors;  // Uses ICD
+// REMOVED: pub mod barrier_policy;         // Uses ICD
+// REMOVED: pub mod timeline_batching;      // Uses ICD
+// REMOVED: pub mod pool_allocator;         // Uses ICD
 
 #[cfg(test)]
 mod tests;
@@ -30,34 +30,24 @@ pub use pipeline::*;
 pub use descriptor::*;
 pub use sync::*;
 
-// ICD initialization state
+// Kronos initialization state
 lazy_static::lazy_static! {
-    pub static ref ICD_INITIALIZED: Mutex<bool> = Mutex::new(false);
+    pub static ref KRONOS_INITIALIZED: Mutex<bool> = Mutex::new(false);
 }
 
-/// Initialize Kronos (loads ICD if available)
+/// Initialize Kronos - pure Rust implementation
 pub fn initialize_kronos() -> Result<(), error::KronosError> {
-    log::info!("=== Kronos Implementation Initializing ===");
-    let mut initialized = ICD_INITIALIZED.lock()?;
+    log::info!("=== Kronos Pure Rust Implementation Initializing ===");
+    let mut initialized = KRONOS_INITIALIZED.lock()?;
     if *initialized {
         log::info!("Kronos already initialized");
         return Ok(());
     }
     
-    // Try to load ICD, but don't fail if unavailable
-    // Functions will return ErrorInitializationFailed when called without ICD
-    match icd_loader::initialize_icd_loader() {
-        Ok(()) => {
-            *initialized = true;
-            log::info!("Kronos initialized successfully with ICD forwarding");
-            Ok(())
-        }
-        Err(e) => {
-            // Log the error but don't fail initialization
-            warn!("Failed to initialize Vulkan ICD loader: {}", e);
-            *initialized = true; // Mark as initialized even without ICD
-            Ok(())
-        }
-    }
+    // Initialize our pure Rust implementation
+    // No ICD loading, no system Vulkan dependency!
+    *initialized = true;
+    log::info!("Kronos initialized successfully - pure Rust compute implementation");
+    Ok(())
 }
 

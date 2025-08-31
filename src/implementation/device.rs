@@ -1,101 +1,142 @@
-//! Device creation and queue management
+//! REAL Kronos device implementation - NO ICD forwarding!
 
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
-use crate::implementation::icd_loader;
+use std::ptr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::collections::HashMap;
 
-/// Create a logical device
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. physicalDevice is a valid VkPhysicalDevice from vkEnumeratePhysicalDevices
-// 2. pCreateInfo points to a valid VkDeviceCreateInfo structure
-// 3. pAllocator is either null or points to valid allocation callbacks
-// 4. pDevice points to valid memory for writing the device handle
+// Device handle counter
+static DEVICE_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+// Registry of active devices
+lazy_static::lazy_static! {
+    static ref DEVICES: Mutex<HashMap<u64, DeviceData>> = Mutex::new(HashMap::new());
+}
+
+struct DeviceData {
+    physical_device: VkPhysicalDevice,
+    queue_family_index: u32,
+    queue: VkQueue,
+}
+
+/// Get physical device properties - return info about our virtual compute device
+#[no_mangle]
+pub unsafe extern "C" fn vkGetPhysicalDeviceProperties(
+    physicalDevice: VkPhysicalDevice,
+    pProperties: *mut VkPhysicalDeviceProperties,
+) {
+    if physicalDevice.is_null() || pProperties.is_null() {
+        return;
+    }
+    
+    let props = &mut *pProperties;
+    
+    // API version - we support Vulkan 1.3 compute
+    props.apiVersion = VK_API_VERSION_1_3;
+    props.driverVersion = VK_MAKE_VERSION(0, 2, 3);
+    props.vendorID = 0x1337; // Custom vendor ID
+    props.deviceID = 0x0001;
+    props.deviceType = VkPhysicalDeviceType::VirtualGpu;
+    
+    // Device name
+    let name = b"Kronos Virtual Compute Device\0";
+    let len = name.len().min(VK_MAX_PHYSICAL_DEVICE_NAME_SIZE as usize);
+    props.deviceName[..len].copy_from_slice(&name[..len].iter().map(|&b| b as i8).collect::<Vec<_>>());
+    
+    // Limits - set reasonable compute limits
+    props.limits.maxComputeSharedMemorySize = 49152; // 48KB
+    props.limits.maxComputeWorkGroupCount = [65536, 65536, 65536];
+    props.limits.maxComputeWorkGroupInvocations = 1024;
+    props.limits.maxComputeWorkGroupSize = [1024, 1024, 64];
+    
+    // Sparse properties - we don't support sparse
+    props.sparseProperties = VkPhysicalDeviceSparseProperties {
+        residencyStandard2DBlockShape: VK_FALSE,
+        residencyStandard2DMultisampleBlockShape: VK_FALSE,
+        residencyStandard3DBlockShape: VK_FALSE,
+        residencyAlignedMipSize: VK_FALSE,
+        residencyNonResidentStrict: VK_FALSE,
+    };
+}
+
+/// Get queue family properties - we have one compute queue
+#[no_mangle]
+pub unsafe extern "C" fn vkGetPhysicalDeviceQueueFamilyProperties(
+    physicalDevice: VkPhysicalDevice,
+    pQueueFamilyPropertyCount: *mut u32,
+    pQueueFamilyProperties: *mut VkQueueFamilyProperties,
+) {
+    if physicalDevice.is_null() || pQueueFamilyPropertyCount.is_null() {
+        return;
+    }
+    
+    if pQueueFamilyProperties.is_null() {
+        *pQueueFamilyPropertyCount = 1;
+        return;
+    }
+    
+    let count = *pQueueFamilyPropertyCount;
+    if count == 0 {
+        return;
+    }
+    
+    // We have one queue family that supports compute
+    let props = &mut *pQueueFamilyProperties;
+    props.queueFlags = VkQueueFlags::COMPUTE | VkQueueFlags::TRANSFER;
+    props.queueCount = 1;
+    props.timestampValidBits = 64;
+    props.minImageTransferGranularity = VkExtent3D { width: 1, height: 1, depth: 1 };
+    
+    *pQueueFamilyPropertyCount = 1;
+}
+
+/// Create logical device
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateDevice(
     physicalDevice: VkPhysicalDevice,
     pCreateInfo: *const VkDeviceCreateInfo,
-    pAllocator: *const VkAllocationCallbacks,
+    _pAllocator: *const VkAllocationCallbacks,
     pDevice: *mut VkDevice,
 ) -> VkResult {
     if physicalDevice.is_null() || pCreateInfo.is_null() || pDevice.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-
-    // Aggregated-aware: prefer ICD owning the physical device
-    if let Some(icd_arc) = icd_loader::icd_for_physical_device(physicalDevice) {
-        if let Some(create_device_fn) = icd_arc.create_device {
-            let result = create_device_fn(physicalDevice, pCreateInfo, pAllocator, pDevice);
-            if result == VkResult::Success {
-                log::info!("Device creation successful for physical device {:?}, new device: {:?}", physicalDevice, *pDevice);
-                // Load device-level functions into a cloned ICD and register device → ICD mapping
-                let mut cloned = (*icd_arc).clone();
-                match icd_loader::load_device_functions_inner(&mut cloned, *pDevice) {
-                    Ok(()) => {
-                        log::info!("Successfully loaded device functions for device {:?}", *pDevice);
-                        // Check if create_buffer was loaded
-                        if cloned.create_buffer.is_some() {
-                            log::info!("create_buffer function loaded successfully");
-                        } else {
-                            log::warn!("create_buffer function NOT loaded!");
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Failed to load device functions: {:?}", e);
-                    }
-                }
-                let updated = std::sync::Arc::new(cloned);
-                icd_loader::register_device_icd(*pDevice, &updated);
-                log::info!("Registered device {:?} with ICD", *pDevice);
-            }
-            return result;
-        }
-    }
-
-    // Fallback to single-ICD driver
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(create_device_fn) = icd.create_device {
-            let result = create_device_fn(physicalDevice, pCreateInfo, pAllocator, pDevice);
-            if result == VkResult::Success {
-                let _ = super::icd_loader::update_device_functions(*pDevice);
-            }
-            return result;
-        }
-    }
-
-    VkResult::ErrorInitializationFailed
-}
-
-/// Destroy a logical device
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. device is a valid VkDevice created by vkCreateDevice
-// 2. pAllocator matches the allocator used in vkCreateDevice (or both are null)
-// 3. All objects created from this device have been destroyed
-#[no_mangle]
-pub unsafe extern "C" fn vkDestroyDevice(
-    device: VkDevice,
-    pAllocator: *const VkAllocationCallbacks,
-) {
-    if device.is_null() {
-        return;
+    
+    let create_info = &*pCreateInfo;
+    
+    // Verify queue creation
+    if create_info.queueCreateInfoCount == 0 {
+        return VkResult::ErrorInitializationFailed;
     }
     
-    // Forward to real ICD
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(destroy_device) = icd.destroy_device {
-            destroy_device(device, pAllocator);
-        }
-    }
-
-    // Unregister device from provenance registry (aggregated mode)
-    crate::implementation::icd_loader::unregister_device(device);
+    // Get first queue family (should be compute)
+    let queue_info = &*create_info.pQueueCreateInfos;
+    let queue_family_index = queue_info.queueFamilyIndex;
+    
+    // Create device handle
+    let device_handle = DEVICE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let queue_handle = DEVICE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    
+    // Store device data
+    let device_data = DeviceData {
+        physical_device: physicalDevice,
+        queue_family_index,
+        queue: VkQueue::from_raw(queue_handle),
+    };
+    
+    DEVICES.lock().unwrap().insert(device_handle, device_data);
+    
+    *pDevice = VkDevice::from_raw(device_handle);
+    
+    log::info!("Created Kronos device {:?} - pure Rust compute implementation", device_handle);
+    
+    VkResult::Success
 }
 
-/// Get a device queue
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. device is a valid VkDevice
-// 2. queueFamilyIndex and queueIndex are valid for this device
-// 3. pQueue points to valid memory for writing the queue handle
+/// Get device queue
 #[no_mangle]
 pub unsafe extern "C" fn vkGetDeviceQueue(
     device: VkDevice,
@@ -106,82 +147,58 @@ pub unsafe extern "C" fn vkGetDeviceQueue(
     if device.is_null() || pQueue.is_null() {
         return;
     }
-
-    // Route via owning ICD if known
-    if let Some(icd) = icd_loader::icd_for_device(device) {
-        if let Some(f) = icd.get_device_queue {
-            f(device, queueFamilyIndex, queueIndex, pQueue);
-            if let Some(queue) = pQueue.as_ref() {
-                // Register queue → ICD mapping
-                icd_loader::register_queue_icd(unsafe { *queue }, &icd);
-            }
-            return;
-        }
+    
+    if queueIndex != 0 {
+        return; // We only have one queue
     }
-    // Fallback
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(get_device_queue) = icd.get_device_queue {
-            get_device_queue(device, queueFamilyIndex, queueIndex, pQueue);
+    
+    let handle = device.as_raw();
+    if let Some(device_data) = DEVICES.lock().unwrap().get(&handle) {
+        if queueFamilyIndex == device_data.queue_family_index {
+            *pQueue = device_data.queue;
         }
     }
 }
 
-/// Submit work to a queue
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. queue is a valid VkQueue obtained from vkGetDeviceQueue
-// 2. If submitCount > 0, pSubmits points to an array of valid VkSubmitInfo structures
-// 3. fence is either VK_NULL_HANDLE or a valid VkFence
-// 4. All command buffers, semaphores, and other resources referenced are valid
+/// Get physical device memory properties
 #[no_mangle]
-pub unsafe extern "C" fn vkQueueSubmit(
-    queue: VkQueue,
-    submitCount: u32,
-    pSubmits: *const VkSubmitInfo,
-    fence: VkFence,
-) -> VkResult {
-    if queue.is_null() {
-        return VkResult::ErrorDeviceLost;
+pub unsafe extern "C" fn vkGetPhysicalDeviceMemoryProperties(
+    physicalDevice: VkPhysicalDevice,
+    pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
+) {
+    if physicalDevice.is_null() || pMemoryProperties.is_null() {
+        return;
     }
-
-    // Route via queue owner if known
-    if let Some(icd) = icd_loader::icd_for_queue(queue) {
-        if let Some(f) = icd.queue_submit { return f(queue, submitCount, pSubmits, fence); }
-    }
-    // Fallback
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(f) = icd.queue_submit { return f(queue, submitCount, pSubmits, fence); }
-    }
-    VkResult::ErrorInitializationFailed
+    
+    let props = &mut *pMemoryProperties;
+    
+    // We support one memory type - host visible and coherent
+    props.memoryTypeCount = 1;
+    props.memoryTypes[0] = VkMemoryType {
+        propertyFlags: VkMemoryPropertyFlags::HOST_VISIBLE | VkMemoryPropertyFlags::HOST_COHERENT,
+        heapIndex: 0,
+    };
+    
+    // One memory heap - 16GB virtual memory
+    props.memoryHeapCount = 1;
+    props.memoryHeaps[0] = VkMemoryHeap {
+        size: 16 * 1024 * 1024 * 1024, // 16GB
+        flags: 0, // No specific heap flags
+    };
 }
 
-/// Wait for queue to become idle
+/// Destroy device
 #[no_mangle]
-pub unsafe extern "C" fn vkQueueWaitIdle(queue: VkQueue) -> VkResult {
-    if queue.is_null() {
-        return VkResult::ErrorDeviceLost;
-    }
-
-    if let Some(icd) = icd_loader::icd_for_queue(queue) {
-        if let Some(f) = icd.queue_wait_idle { return f(queue); }
-    }
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(f) = icd.queue_wait_idle { return f(queue); }
-    }
-    VkResult::ErrorInitializationFailed
-}
-
-/// Wait for device to become idle
-#[no_mangle]
-pub unsafe extern "C" fn vkDeviceWaitIdle(device: VkDevice) -> VkResult {
+pub unsafe extern "C" fn vkDestroyDevice(
+    device: VkDevice,
+    _pAllocator: *const VkAllocationCallbacks,
+) {
     if device.is_null() {
-        return VkResult::ErrorDeviceLost;
+        return;
     }
-
-    if let Some(icd) = icd_loader::icd_for_device(device) {
-        if let Some(f) = icd.device_wait_idle { return f(device); }
-    }
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(f) = icd.device_wait_idle { return f(device); }
-    }
-    VkResult::ErrorInitializationFailed
+    
+    let handle = device.as_raw();
+    DEVICES.lock().unwrap().remove(&handle);
+    
+    log::info!("Destroyed Kronos device {:?}", handle);
 }

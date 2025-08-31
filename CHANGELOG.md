@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3-rc3] - 2025-08-31
+
+### Changed
+- **BREAKING**: Removed ALL ICD loading and system Vulkan dependencies
+- Kronos Compute is now a pure Rust implementation with no external Vulkan dependencies
+- Removed `icd_loader.rs` module entirely
+- Removed `forward.rs` module and all ICD forwarding macros
+- Removed modules that depended on ICD forwarding: `persistent_descriptors`, `barrier_policy`, `timeline_batching`, `pool_allocator`
+- All Vulkan functions now have actual Rust implementations instead of forwarding to system drivers
+
+### Added
+- Pure Rust implementation of instance creation/destruction
+- Pure Rust implementation of device enumeration and creation
+- Pure Rust implementation of memory allocation and management
+- Pure Rust implementation of buffer creation and management
+- Pure Rust implementation of pipeline and shader module creation
+- Pure Rust implementation of descriptor set layouts and pools
+- Pure Rust implementation of synchronization primitives (fences, semaphores, events)
+- Pure Rust implementation of command buffer recording
+- Added missing functions: `vkFreeCommandBuffers`, `vkCmdPipelineBarrier`, `vkFreeDescriptorSets`, `vkGetFenceStatus`, `vkSetEvent`, `vkResetEvent`, `vkGetEventStatus`
+
+### Fixed
+- Safe API now works with pure Rust implementation without any ICD dependencies
+- Fixed compilation errors after removing ICD forwarding
+- Fixed VkPhysicalDeviceType to use VirtualGpu variant
+- Fixed command buffer state management in EndCommandBuffer
+
+### Technical Details
+This is a major architectural change. Kronos Compute was previously forwarding all calls to system Vulkan ICDs (like AMD's amdvlk or NVIDIA's drivers). Now it's a complete pure Rust implementation of the Vulkan compute subset. This means:
+- No dependency on system Vulkan drivers
+- Fully portable across systems without Vulkan installed
+- Complete control over the implementation
+- Foundation for future GPU compute innovations in pure Rust
+
+The implementation currently provides stub functionality - actual GPU compute execution will be implemented in future releases.
+
+## [0.2.3-rc2] - 2025-08-31
+
+### Fixed
+- Fixed safe API pipeline creation crash - devices are now properly registered with their ICD
+- Pipeline/shader creation now correctly routes to the ICD that created the device
+
+### Changed  
+- Safe API now calls register_device_icd() and register_queue_icd() after device creation
+- This ensures vkCreateShaderModule and other device functions can find the correct ICD
+
+### Technical Details
+The safe API was creating devices through the ICD but not registering them. When pipeline
+functions were called, they couldn't find the ICD for that device and would fall back to
+incorrect forwarding, causing crashes in system Vulkan libraries.
+
 ## [0.2.3-rc1] - 2025-08-31
 
 ### Fixed

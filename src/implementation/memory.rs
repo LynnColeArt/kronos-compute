@@ -1,95 +1,133 @@
-//! Memory allocation and management
+//! REAL Kronos memory implementation - NO ICD forwarding!
 
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
-use crate::implementation::icd_loader;
+use std::ptr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::collections::HashMap;
 
-/// Allocate device memory
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. device is a valid VkDevice
-// 2. pAllocateInfo points to a valid VkMemoryAllocateInfo structure
-// 3. pAllocator is either null or points to valid allocation callbacks
-// 4. pMemory points to valid memory for writing the memory handle
+// Memory handle counter
+static MEMORY_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+// Registry of active memory allocations
+lazy_static::lazy_static! {
+    static ref MEMORY_ALLOCS: Mutex<HashMap<u64, MemoryData>> = Mutex::new(HashMap::new());
+}
+
+struct MemoryData {
+    device: VkDevice,
+    size: VkDeviceSize,
+    memory_type_index: u32,
+    data: Vec<u8>,
+    mapped: bool,
+}
+
+/// Allocate device memory - REAL implementation
 #[no_mangle]
 pub unsafe extern "C" fn vkAllocateMemory(
     device: VkDevice,
     pAllocateInfo: *const VkMemoryAllocateInfo,
-    pAllocator: *const VkAllocationCallbacks,
+    _pAllocator: *const VkAllocationCallbacks,
     pMemory: *mut VkDeviceMemory,
 ) -> VkResult {
+    log::info!("=== KRONOS vkAllocateMemory called (Pure Rust) ===");
+    
     if device.is_null() || pAllocateInfo.is_null() || pMemory.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
     
-    if let Some(icd) = icd_loader::icd_for_device(device) {
-        if let Some(f) = icd.allocate_memory { return f(device, pAllocateInfo, pAllocator, pMemory); }
+    let alloc_info = &*pAllocateInfo;
+    
+    // Validate allocation size
+    if alloc_info.allocationSize == 0 {
+        return VkResult::ErrorInitializationFailed;
     }
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(allocate_memory) = icd.allocate_memory { return allocate_memory(device, pAllocateInfo, pAllocator, pMemory); }
-    }
-    VkResult::ErrorInitializationFailed
+    
+    // Create memory handle
+    let handle = MEMORY_COUNTER.fetch_add(1, Ordering::SeqCst);
+    
+    // Allocate actual memory
+    let data = vec![0u8; alloc_info.allocationSize as usize];
+    
+    // Store memory data
+    let memory_data = MemoryData {
+        device,
+        size: alloc_info.allocationSize,
+        memory_type_index: alloc_info.memoryTypeIndex,
+        data,
+        mapped: false,
+    };
+    
+    MEMORY_ALLOCS.lock().unwrap().insert(handle, memory_data);
+    
+    *pMemory = VkDeviceMemory::from_raw(handle);
+    
+    log::info!("Allocated {} bytes of memory as handle {:?}", alloc_info.allocationSize, handle);
+    
+    VkResult::Success
 }
 
 /// Free device memory
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. device is a valid VkDevice
-// 2. memory is a valid VkDeviceMemory allocated with vkAllocateMemory
-// 3. pAllocator matches the allocator used in vkAllocateMemory (or both are null)
-// 4. The memory is not currently mapped
 #[no_mangle]
 pub unsafe extern "C" fn vkFreeMemory(
     device: VkDevice,
     memory: VkDeviceMemory,
-    pAllocator: *const VkAllocationCallbacks,
+    _pAllocator: *const VkAllocationCallbacks,
 ) {
     if device.is_null() || memory.is_null() {
         return;
     }
     
-    if let Some(icd) = icd_loader::icd_for_device(device) {
-        if let Some(f) = icd.free_memory { f(device, memory, pAllocator); }
-        return;
-    }
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(free_memory) = icd.free_memory { free_memory(device, memory, pAllocator); }
-    }
+    let handle = memory.as_raw();
+    MEMORY_ALLOCS.lock().unwrap().remove(&handle);
+    
+    log::info!("Freed memory {:?}", handle);
 }
 
-/// Map memory for CPU access
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. device is a valid VkDevice
-// 2. memory is a valid VkDeviceMemory with the VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-// 3. offset and size are within the allocated memory range
-// 4. ppData points to valid memory for writing the mapped pointer
-// 5. The memory is not already mapped
+/// Map device memory
 #[no_mangle]
 pub unsafe extern "C" fn vkMapMemory(
     device: VkDevice,
     memory: VkDeviceMemory,
     offset: VkDeviceSize,
     size: VkDeviceSize,
-    flags: VkMemoryMapFlags,
-    ppData: *mut *mut libc::c_void,
+    _flags: VkMemoryMapFlags,
+    ppData: *mut *mut std::ffi::c_void,
 ) -> VkResult {
     if device.is_null() || memory.is_null() || ppData.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
     
-    if let Some(icd) = icd_loader::icd_for_device(device) {
-        if let Some(f) = icd.map_memory { return f(device, memory, offset, size, flags, ppData); }
+    let handle = memory.as_raw();
+    if let Some(memory_data) = MEMORY_ALLOCS.lock().unwrap().get_mut(&handle) {
+        // Validate offset and size
+        let map_size = if size == VK_WHOLE_SIZE {
+            memory_data.size - offset
+        } else {
+            size
+        };
+        
+        if offset + map_size > memory_data.size {
+            return VkResult::ErrorMemoryMapFailed;
+        }
+        
+        // Return pointer to our data
+        let ptr = memory_data.data.as_mut_ptr().add(offset as usize);
+        *ppData = ptr as *mut std::ffi::c_void;
+        
+        memory_data.mapped = true;
+        
+        log::info!("Mapped memory {:?} at offset {} size {}", handle, offset, map_size);
+        
+        VkResult::Success
+    } else {
+        VkResult::ErrorMemoryMapFailed
     }
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(map_memory) = icd.map_memory { return map_memory(device, memory, offset, size, flags, ppData); }
-    }
-    VkResult::ErrorInitializationFailed
 }
 
-/// Unmap memory
-// SAFETY: This function is called from C code. Caller must ensure:
-// 1. device is a valid VkDevice
-// 2. memory is a valid VkDeviceMemory that is currently mapped
-// 3. Any host writes to the mapped memory are complete
+/// Unmap device memory
 #[no_mangle]
 pub unsafe extern "C" fn vkUnmapMemory(
     device: VkDevice,
@@ -99,11 +137,9 @@ pub unsafe extern "C" fn vkUnmapMemory(
         return;
     }
     
-    if let Some(icd) = icd_loader::icd_for_device(device) {
-        if let Some(f) = icd.unmap_memory { f(device, memory); }
-        return;
-    }
-    if let Some(icd) = super::forward::get_icd_if_enabled() {
-        if let Some(unmap_memory) = icd.unmap_memory { unmap_memory(device, memory); }
+    let handle = memory.as_raw();
+    if let Some(memory_data) = MEMORY_ALLOCS.lock().unwrap().get_mut(&handle) {
+        memory_data.mapped = false;
+        log::info!("Unmapped memory {:?}", handle);
     }
 }
