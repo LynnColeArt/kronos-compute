@@ -190,20 +190,31 @@ pub unsafe extern "C" fn vkCreateCommandPool(
         return VkResult::ErrorInitializationFailed;
     }
     // Route via owning ICD if known
+    log::debug!("[vkCreateCommandPool] Checking device ICD mapping");
     if let Some(icd) = icd_loader::icd_for_device(device) {
+        log::debug!("[vkCreateCommandPool] Found device ICD");
         if let Some(f) = icd.create_command_pool {
+            log::debug!("[vkCreateCommandPool] Calling ICD's create_command_pool");
             let res = f(device, pCreateInfo, pAllocator, pCommandPool);
             if res == VkResult::Success {
                 icd_loader::register_command_pool_icd(*pCommandPool, &icd);
             }
             return res;
+        } else {
+            log::warn!("[vkCreateCommandPool] Device ICD found but create_command_pool is null");
         }
     }
     // Fallback
+    log::debug!("[vkCreateCommandPool] Using fallback single ICD");
     if let Some(icd) = super::forward::get_icd_if_enabled() {
         if let Some(create_command_pool) = icd.create_command_pool {
+            log::debug!("[vkCreateCommandPool] Calling fallback ICD's create_command_pool");
             return create_command_pool(device, pCreateInfo, pAllocator, pCommandPool);
+        } else {
+            log::warn!("[vkCreateCommandPool] Fallback ICD has no create_command_pool function");
         }
+    } else {
+        log::warn!("[vkCreateCommandPool] No fallback ICD available");
     }
     VkResult::ErrorInitializationFailed
 }

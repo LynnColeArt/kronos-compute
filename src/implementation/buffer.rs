@@ -19,7 +19,7 @@ pub unsafe extern "C" fn vkCreateBuffer(
     pAllocator: *const VkAllocationCallbacks,
     pBuffer: *mut VkBuffer,
 ) -> VkResult {
-    log::info!("=== KRONOS vkCreateBuffer called (v0.2.0-rc10) ===");
+    log::info!("=== KRONOS vkCreateBuffer called ===");
     log::info!("device: {:?}, pCreateInfo: {:?}, pBuffer: {:?}", device, pCreateInfo, pBuffer);
     
     if device.is_null() || pCreateInfo.is_null() || pBuffer.is_null() {

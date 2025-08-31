@@ -71,9 +71,9 @@ pub struct ContextConfig {
     pub enable_validation: bool,
     /// Preferred GPU vendor (AMD, NVIDIA, Intel)
     pub preferred_vendor: Option<String>,
-    /// Preferred ICD by path (process-wide for now)
+    /// Preferred ICD by path (only works in aggregated mode or before first initialization)
     pub preferred_icd_path: Option<std::path::PathBuf>,
-    /// Preferred ICD by index (process-wide for now)
+    /// Preferred ICD by index (only works in aggregated mode or before first initialization)
     pub preferred_icd_index: Option<usize>,
 }
 

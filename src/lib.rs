@@ -51,8 +51,8 @@ extern crate libc;
 
 /// Version information
 pub const KRONOS_VERSION_MAJOR: u32 = 0;
-pub const KRONOS_VERSION_MINOR: u32 = 1;
-pub const KRONOS_VERSION_PATCH: u32 = 0;
+pub const KRONOS_VERSION_MINOR: u32 = 2;
+pub const KRONOS_VERSION_PATCH: u32 = 3;
 
 /// Make version number from major, minor, and patch numbers
 #[inline]
@@ -73,6 +73,6 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert_eq!(KRONOS_API_VERSION, make_version(0, 1, 0));
+        assert_eq!(KRONOS_API_VERSION, make_version(0, 2, 3));
     }
 }
