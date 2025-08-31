@@ -30,7 +30,20 @@ pub unsafe extern "C" fn vkCreateDevice(
                 log::info!("Device creation successful for physical device {:?}, new device: {:?}", physicalDevice, *pDevice);
                 // Load device-level functions into a cloned ICD and register device → ICD mapping
                 let mut cloned = (*icd_arc).clone();
-                let _ = icd_loader::load_device_functions_inner(&mut cloned, *pDevice);
+                match icd_loader::load_device_functions_inner(&mut cloned, *pDevice) {
+                    Ok(()) => {
+                        log::info!("Successfully loaded device functions for device {:?}", *pDevice);
+                        // Check if create_buffer was loaded
+                        if cloned.create_buffer.is_some() {
+                            log::info!("create_buffer function loaded successfully");
+                        } else {
+                            log::warn!("create_buffer function NOT loaded!");
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to load device functions: {:?}", e);
+                    }
+                }
                 let updated = std::sync::Arc::new(cloned);
                 icd_loader::register_device_icd(*pDevice, &updated);
                 log::info!("Registered device {:?} with ICD", *pDevice);

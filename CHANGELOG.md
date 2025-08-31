@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc6] - 2025-08-31
+
+### Added
+- Enhanced debug logging for buffer creation to diagnose function loading issues
+- Logging now shows whether create_buffer function was successfully loaded
+- Detailed error messages when ICD doesn't have required functions
+
+### Technical Details
+Added comprehensive logging to track:
+1. Whether device functions are loaded successfully
+2. Whether create_buffer specifically is present in the ICD
+3. Which path (device-specific or fallback) is being used
+4. Why ErrorInitializationFailed might be returned
+
+This will help diagnose why buffer creation fails even when device creation succeeds.
+
 ## [0.2.0-rc5] - 2025-08-31
 
 ### Fixed
@@ -162,7 +178,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc5...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc6...HEAD
+[0.2.0-rc6]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc5...v0.2.0-rc6
 [0.2.0-rc5]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc4...v0.2.0-rc5
 [0.2.0-rc4]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc3...v0.2.0-rc4
 [0.2.0-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc2...v0.2.0-rc3

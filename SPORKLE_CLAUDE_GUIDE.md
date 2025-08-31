@@ -2,16 +2,17 @@
 
 ## Quick Start
 
-To enable multi-GPU support in Kronos Compute v0.2.0-rc5:
+To enable multi-GPU support in Kronos Compute v0.2.0-rc6:
 
 ```bash
 export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc5 🍬
+## What's New in v0.2.0-rc6 🍬
 
-- **v0.2.0-rc5**: Buffer creation FIXED! Now handles device-ICD mapping correctly in aggregated mode
+- **v0.2.0-rc6**: Enhanced debug logging! Shows why create_buffer might fail
+- **v0.2.0-rc5**: Buffer creation attempted fix - handles device-ICD mapping in aggregated mode
 - **v0.2.0-rc4**: Multi-GPU WORKS! Fixed instance-level function loading in aggregated mode
 - **v0.2.0-rc3**: Fixed build errors! Now compiles without Vulkan linking issues
 - **v0.2.0-rc2**: Fixed multi-ICD enumeration to discover all GPUs
@@ -70,9 +71,12 @@ In aggregated mode, Kronos Compute:
 
 ### Buffer Creation Errors?
 If you see "ErrorInitializationFailed" when creating buffers:
-- This was fixed in v0.2.0-rc5
-- Device-ICD mapping now correctly falls back when registry lookup fails
-- Enable logging to see the fallback path: `RUST_LOG=kronos_compute::implementation::buffer=debug`
+- v0.2.0-rc6 adds debug logging to help diagnose the issue
+- Enable detailed logging: `RUST_LOG=kronos_compute::implementation::buffer=debug,kronos_compute::implementation::device=debug`
+- The logs will show:
+  - Whether device functions were loaded successfully
+  - Whether create_buffer function is present in the ICD
+  - Which ICD path is being used (device-specific or fallback)
 
 ### Build Errors?
 If you see "undefined version" errors when building:

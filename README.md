@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 5 (v0.2.0-rc5): Fixed buffer creation in aggregated mode! 🍬 Multi-GPU support now handles device-ICD mapping correctly.**
+> **📦 Release Candidate 6 (v0.2.0-rc6): Enhanced debug logging for buffer creation issues! 🍬 Helps diagnose why create_buffer might not be loaded.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
