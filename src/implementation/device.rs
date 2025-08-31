@@ -27,11 +27,13 @@ pub unsafe extern "C" fn vkCreateDevice(
         if let Some(create_device_fn) = icd_arc.create_device {
             let result = create_device_fn(physicalDevice, pCreateInfo, pAllocator, pDevice);
             if result == VkResult::Success {
+                log::info!("Device creation successful for physical device {:?}, new device: {:?}", physicalDevice, *pDevice);
                 // Load device-level functions into a cloned ICD and register device → ICD mapping
                 let mut cloned = (*icd_arc).clone();
                 let _ = icd_loader::load_device_functions_inner(&mut cloned, *pDevice);
                 let updated = std::sync::Arc::new(cloned);
                 icd_loader::register_device_icd(*pDevice, &updated);
+                log::info!("Registered device {:?} with ICD", *pDevice);
             }
             return result;
         }

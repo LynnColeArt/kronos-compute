@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 4 (v0.2.0-rc4): Multi-GPU finally works! 🍬 Aggregated mode now properly discovers all GPUs without VK_ICD_FILENAMES workaround.**
+> **📦 Release Candidate 5 (v0.2.0-rc5): Fixed buffer creation in aggregated mode! 🍬 Multi-GPU support now handles device-ICD mapping correctly.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)

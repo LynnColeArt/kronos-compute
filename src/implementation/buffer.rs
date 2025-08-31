@@ -25,12 +25,17 @@ pub unsafe extern "C" fn vkCreateBuffer(
     
     // Route via owning ICD if known
     if let Some(icd) = icd_loader::icd_for_device(device) {
+        log::debug!("Found ICD for device {:?}", device);
         if let Some(f) = icd.create_buffer { return f(device, pCreateInfo, pAllocator, pBuffer); }
+    } else {
+        log::warn!("No ICD found for device {:?} - checking fallback", device);
     }
     // Fallback
     if let Some(icd) = super::forward::get_icd_if_enabled() {
+        log::info!("Using fallback ICD for buffer creation");
         if let Some(create_buffer) = icd.create_buffer { return create_buffer(device, pCreateInfo, pAllocator, pBuffer); }
     }
+    log::error!("No ICD available for buffer creation - returning ErrorInitializationFailed");
     VkResult::ErrorInitializationFailed
 }
 

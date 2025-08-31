@@ -1072,6 +1072,13 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
         info!("Selected hardware Vulkan driver: {}", best_icd.library_path.display());
     }
     
+    // In aggregated mode, log that we're using multiple ICDs
+    if aggregated_mode_enabled() {
+        let icd_count = ALL_ICDS.lock()?.len();
+        info!("Aggregated mode enabled: {} ICDs available for multi-GPU support", icd_count);
+        info!("Using {} as fallback ICD", best_icd.library_path.display());
+    }
+    
     *ICD_LOADER.lock()? = Some(Arc::new(best_icd));
     Ok(())
 }

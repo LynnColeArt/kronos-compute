@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc5] - 2025-08-31
+
+### Fixed
+- Buffer creation now works correctly in aggregated mode
+- Device-ICD mapping properly handles fallback to single ICD when device lookup fails
+- Added debug logging to trace device registration and buffer creation paths
+
+### Technical Details
+In aggregated mode, when `icd_for_device()` fails to find a device in the registry,
+it now correctly falls back to the selected "best" ICD stored in `ICD_LOADER`.
+This ensures buffer creation and other device operations work correctly even
+if the device-ICD mapping is not found.
+
 ## [0.2.0-rc4] - 2025-08-31
 
 ### Fixed
@@ -149,7 +162,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc4...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc5...HEAD
+[0.2.0-rc5]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc4...v0.2.0-rc5
 [0.2.0-rc4]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc3...v0.2.0-rc4
 [0.2.0-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc2...v0.2.0-rc3
 [0.2.0-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc1...v0.2.0-rc2
