@@ -5,7 +5,7 @@ includedir=${prefix}/include
 
 Name: kronos-compute
 Description: High-Performance Compute-Only Vulkan Implementation
-Version: 0.2.0-rc11
+Version: 0.2.0-rc12
 Libs: -L${libdir} -lkronos_compute
 Cflags: -I${includedir}
 Requires:

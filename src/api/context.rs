@@ -11,6 +11,8 @@ use crate::implementation::{
     vkGetPhysicalDeviceProperties, vkGetPhysicalDeviceMemoryProperties,
     vkGetPhysicalDeviceQueueFamilyProperties,
     vkCreateDevice, vkDestroyDevice, vkGetDeviceQueue,
+    vkCreateDescriptorPool, vkDestroyDescriptorPool,
+    vkCreateCommandPool, vkDestroyCommandPool,
 };
 use std::ffi::CString;
 use std::ptr;
@@ -118,9 +120,11 @@ impl ComputeContext {
             log::info!("[SAFE API] Device created: {:?}, queue: {:?}", device, queue);
             
             // Create descriptor pool for persistent descriptors
-            log::info!("[SAFE API] Creating descriptor pool");
-            let descriptor_pool = Self::create_descriptor_pool(device)?;
-            log::info!("[SAFE API] Descriptor pool created: {:?}", descriptor_pool);
+            // TODO: Fix descriptor pool creation - temporarily skip
+            log::info!("[SAFE API] Skipping descriptor pool creation temporarily");
+            let descriptor_pool = VkDescriptorPool::NULL;
+            // let descriptor_pool = Self::create_descriptor_pool(device)?;
+            // log::info!("[SAFE API] Descriptor pool created: {:?}", descriptor_pool);
             
             // Create command pool
             log::info!("[SAFE API] Creating command pool");
@@ -222,7 +226,13 @@ impl ComputeContext {
     unsafe fn find_compute_device(instance: VkInstance) -> Result<(VkPhysicalDevice, u32)> {
         let mut device_count = 0;
         log::info!("[SAFE API] Enumerating physical devices...");
-        vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        
+        // First call to get count
+        let result = vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        if result != VkResult::Success {
+            log::error!("[SAFE API] Failed to get device count: {:?}", result);
+            return Err(KronosError::from(result));
+        }
         log::info!("[SAFE API] Found {} physical devices", device_count);
         
         if device_count == 0 {
@@ -230,7 +240,12 @@ impl ComputeContext {
         }
         
         let mut devices = vec![VkPhysicalDevice::NULL; device_count as usize];
-        vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        let result = vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        if result != VkResult::Success {
+            log::error!("[SAFE API] Failed to enumerate devices: {:?}", result);
+            return Err(KronosError::from(result));
+        }
+        log::info!("[SAFE API] Successfully enumerated {} devices", device_count);
         
         // Collect all devices with compute support and their properties
         let mut candidates = Vec::new();
@@ -319,9 +334,8 @@ impl ComputeContext {
             pQueuePriorities: &queue_priority,
         };
         
-        // Don't request any features - use default (all disabled)
-        let features = VkPhysicalDeviceFeatures::default();
-        log::info!("[SAFE API] Creating device with default features (all disabled)");
+        // Don't request any features - use NULL pointer like the working example
+        log::info!("[SAFE API] Creating device with NULL features pointer (no features requested)");
         
         let device_create_info = VkDeviceCreateInfo {
             sType: VkStructureType::DeviceCreateInfo,
@@ -333,7 +347,7 @@ impl ComputeContext {
             ppEnabledLayerNames: ptr::null(),
             enabledExtensionCount: 0,
             ppEnabledExtensionNames: ptr::null(),
-            pEnabledFeatures: &features,
+            pEnabledFeatures: ptr::null(),  // Use NULL like the working example
         };
         
         let mut device = VkDevice::NULL;
@@ -363,6 +377,7 @@ impl ComputeContext {
     /// - Invalid device handle will cause undefined behavior
     /// - Pool creation may fail if device limits are exceeded
     unsafe fn create_descriptor_pool(device: VkDevice) -> Result<VkDescriptorPool> {
+        log::info!("[SAFE API] Creating descriptor pool with device: {:?}", device);
         // Create a large pool for persistent descriptors
         let pool_size = VkDescriptorPoolSize {
             type_: VkDescriptorType::StorageBuffer,
@@ -379,9 +394,12 @@ impl ComputeContext {
         };
         
         let mut pool = VkDescriptorPool::NULL;
+        log::info!("[SAFE API] Calling vkCreateDescriptorPool");
         let result = vkCreateDescriptorPool(device, &pool_info, ptr::null(), &mut pool);
+        log::info!("[SAFE API] vkCreateDescriptorPool returned: {:?}", result);
         
         if result != VkResult::Success {
+            log::error!("[SAFE API] Failed to create descriptor pool: {:?}", result);
             return Err(KronosError::from(result));
         }
         
@@ -457,9 +475,10 @@ impl Drop for ComputeContext {
             if inner.command_pool != VkCommandPool::NULL {
                 vkDestroyCommandPool(inner.device, inner.command_pool, ptr::null());
             }
-            if inner.descriptor_pool != VkDescriptorPool::NULL {
-                vkDestroyDescriptorPool(inner.device, inner.descriptor_pool, ptr::null());
-            }
+            // TODO: Re-enable when descriptor pool creation is fixed
+            // if inner.descriptor_pool != VkDescriptorPool::NULL {
+            //     vkDestroyDescriptorPool(inner.device, inner.descriptor_pool, ptr::null());
+            // }
             if inner.device != VkDevice::NULL {
                 vkDestroyDevice(inner.device, ptr::null());
             }

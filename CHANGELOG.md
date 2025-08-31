@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc12] - 2025-08-31
+
+### Fixed
+- Fixed ErrorFeatureNotPresent by using NULL features pointer (matching working low-level examples)
+- Added proper error checking for vkEnumeratePhysicalDevices calls
+- Explicitly imported descriptor and command pool functions from implementation module
+- Improved logging throughout device enumeration and creation
+
+### Changed
+- Device creation now uses NULL features pointer instead of default struct
+- Temporarily disabled descriptor pool creation to isolate issues
+
+### Known Issues
+- Safe API still returns DeviceNotFound in single-ICD mode (0 devices enumerated)
+- Safe API hangs in aggregated mode (likely during command pool creation)
+- Descriptor pool creation fails with ErrorInitializationFailed
+- ICD selection by path still causes segfault
+
 ## [0.2.0-rc11] - 2025-08-31
 
 ### Fixed
@@ -256,7 +274,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc11...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc12...HEAD
+[0.2.0-rc12]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc11...v0.2.0-rc12
 [0.2.0-rc11]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc10...v0.2.0-rc11
 [0.2.0-rc10]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc9...v0.2.0-rc10
 [0.2.0-rc9]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc8...v0.2.0-rc9

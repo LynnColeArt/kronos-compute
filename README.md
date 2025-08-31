@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 11 (v0.2.0-rc11): Safe API fixes - crash resolved but device enumeration issues remain 🍬**
+> **📦 Release Candidate 12 (v0.2.0-rc12): Safe API progress - NULL features fix, but hangs in aggregated mode 🍬**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
