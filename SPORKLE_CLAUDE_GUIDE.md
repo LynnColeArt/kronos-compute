@@ -2,15 +2,16 @@
 
 ## Quick Start
 
-To enable multi-GPU support in Kronos Compute v0.2.0-rc6:
+To enable multi-GPU support in Kronos Compute v0.2.0-rc7:
 
 ```bash
 export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc6 🍬
+## What's New in v0.2.0-rc7 🍬
 
+- **v0.2.0-rc7**: Entry point logging! Verifies if Kronos vkCreateBuffer is being called
 - **v0.2.0-rc6**: Enhanced debug logging! Shows why create_buffer might fail
 - **v0.2.0-rc5**: Buffer creation attempted fix - handles device-ICD mapping in aggregated mode
 - **v0.2.0-rc4**: Multi-GPU WORKS! Fixed instance-level function loading in aggregated mode
@@ -71,12 +72,14 @@ In aggregated mode, Kronos Compute:
 
 ### Buffer Creation Errors?
 If you see "ErrorInitializationFailed" when creating buffers:
-- v0.2.0-rc6 adds debug logging to help diagnose the issue
-- Enable detailed logging: `RUST_LOG=kronos_compute::implementation::buffer=debug,kronos_compute::implementation::device=debug`
-- The logs will show:
-  - Whether device functions were loaded successfully
-  - Whether create_buffer function is present in the ICD
-  - Which ICD path is being used (device-specific or fallback)
+- v0.2.0-rc7 adds entry point logging to verify our implementation is being called
+- Enable detailed logging: `RUST_LOG=kronos_compute=info`
+- You should see:
+  - "=== Kronos Implementation Initializing ===" during startup
+  - "=== vkCreateBuffer called ===" when creating buffers
+- If you don't see these messages, the application might be bypassing Kronos:
+  - Check that you're not linking directly to system Vulkan
+  - Ensure the application is using Kronos's vkCreateBuffer, not the system's
 
 ### Build Errors?
 If you see "undefined version" errors when building:

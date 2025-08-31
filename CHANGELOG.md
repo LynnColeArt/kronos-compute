@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc7] - 2025-08-31
+
+### Added
+- Entry point logging to verify our vkCreateBuffer is being called
+- Initialization logging to confirm Kronos implementation is active
+- Immediate logging at function entry to diagnose routing issues
+
+### Technical Details
+The enhanced logging in rc6 wasn't showing up, suggesting either:
+1. Our vkCreateBuffer implementation isn't being called at all
+2. The application might be linking directly to system Vulkan
+3. In aggregated mode, calls might be bypassing our implementation
+
+Added logging at the very start of vkCreateBuffer and initialize_kronos to verify
+whether our implementation is being used.
+
 ## [0.2.0-rc6] - 2025-08-31
 
 ### Added
@@ -178,7 +194,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc6...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc7...HEAD
+[0.2.0-rc7]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc6...v0.2.0-rc7
 [0.2.0-rc6]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc5...v0.2.0-rc6
 [0.2.0-rc5]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc4...v0.2.0-rc5
 [0.2.0-rc4]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc3...v0.2.0-rc4

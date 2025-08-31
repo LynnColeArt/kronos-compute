@@ -19,7 +19,11 @@ pub unsafe extern "C" fn vkCreateBuffer(
     pAllocator: *const VkAllocationCallbacks,
     pBuffer: *mut VkBuffer,
 ) -> VkResult {
+    log::info!("=== vkCreateBuffer called ===");
+    log::info!("device: {:?}, pCreateInfo: {:?}, pBuffer: {:?}", device, pCreateInfo, pBuffer);
+    
     if device.is_null() || pCreateInfo.is_null() || pBuffer.is_null() {
+        log::error!("vkCreateBuffer: NULL parameter detected, returning ErrorInitializationFailed");
         return VkResult::ErrorInitializationFailed;
     }
     

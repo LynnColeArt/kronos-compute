@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 6 (v0.2.0-rc6): Enhanced debug logging for buffer creation issues! 🍬 Helps diagnose why create_buffer might not be loaded.**
+> **📦 Release Candidate 7 (v0.2.0-rc7): Entry point logging to verify Kronos implementation is being used! 🍬 Helps diagnose if vkCreateBuffer calls are reaching our code.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)

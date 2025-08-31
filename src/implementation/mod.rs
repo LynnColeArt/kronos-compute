@@ -37,8 +37,10 @@ lazy_static::lazy_static! {
 
 /// Initialize Kronos (loads ICD if available)
 pub fn initialize_kronos() -> Result<(), error::KronosError> {
+    log::info!("=== Kronos Implementation Initializing ===");
     let mut initialized = ICD_INITIALIZED.lock()?;
     if *initialized {
+        log::info!("Kronos already initialized");
         return Ok(());
     }
     
