@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc10] - 2025-08-31
+
+### Added
+- Diagnostic logging with version number in vkCreateBuffer
+- Documentation warning about not linking to system Vulkan
+- Explicit re-export of key implementation functions
+
+### Technical Details
+The issue appears to be that applications are linking to BOTH Kronos and system
+Vulkan. When this happens, the dynamic linker may choose system Vulkan's 
+vkCreateBuffer over Kronos's version. The diagnostic log now shows 
+"KRONOS vkCreateBuffer called (v0.2.0-rc10)" to confirm which implementation
+is being used.
+
+Applications MUST NOT link to system Vulkan when using Kronos with the
+implementation feature - Kronos IS the Vulkan implementation.
+
 ## [0.2.0-rc9] - 2025-08-31
 
 ### Fixed
@@ -222,7 +239,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc9...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc10...HEAD
+[0.2.0-rc10]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc9...v0.2.0-rc10
 [0.2.0-rc9]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc8...v0.2.0-rc9
 [0.2.0-rc8]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc7...v0.2.0-rc8
 [0.2.0-rc7]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc6...v0.2.0-rc7

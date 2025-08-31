@@ -2,6 +2,16 @@
 //! 
 //! This crate provides a streamlined, compute-focused subset of the Vulkan API,
 //! removing all graphics functionality to achieve maximum GPU compute performance.
+//!
+//! # Important: Linking Considerations
+//! 
+//! When using Kronos with the `implementation` feature, do NOT link to system Vulkan.
+//! Kronos provides its own Vulkan implementation. Linking to both will cause symbol
+//! conflicts where system Vulkan functions may be called instead of Kronos functions,
+//! breaking multi-GPU support.
+//!
+//! If you see `ErrorInitializationFailed` but don't see "KRONOS vkCreateBuffer called"
+//! in logs, your application is likely using system Vulkan instead of Kronos.
 
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -21,11 +31,20 @@ pub use core::*;
 pub use sys::*;
 pub use ffi::*;
 
+// When implementation feature is enabled, export all implementation functions
+// This MUST come after other exports to ensure our functions take precedence
 #[cfg(feature = "implementation")]
 pub use implementation::{initialize_kronos};
 
 #[cfg(feature = "implementation")]
 pub use implementation::*;
+
+// Explicitly re-export key functions to ensure they're available
+#[cfg(feature = "implementation")]
+pub use implementation::{
+    vkCreateBuffer, vkDestroyBuffer, vkAllocateMemory, vkFreeMemory,
+    vkCreateDevice, vkDestroyDevice, vkCreateInstance, vkDestroyInstance,
+};
 
 // For libc types
 extern crate libc;

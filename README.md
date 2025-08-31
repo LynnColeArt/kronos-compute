@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 9 (v0.2.0-rc9): Fixed API to explicitly use implementation functions! 🍬 Ensures multi-ICD aware functions are called.**
+> **📦 Release Candidate 10 (v0.2.0-rc10): Diagnostic version - DO NOT link to system Vulkan! 🍬 Kronos IS the Vulkan implementation.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)

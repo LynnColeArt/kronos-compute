@@ -2,16 +2,17 @@
 
 ## Quick Start
 
-To enable multi-GPU support in Kronos Compute v0.2.0-rc9:
+To enable multi-GPU support in Kronos Compute v0.2.0-rc10:
 
 ```bash
 export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc9 🍬
+## What's New in v0.2.0-rc10 🍬
 
-- **v0.2.0-rc9**: FIXED! API now explicitly uses implementation functions for multi-ICD support
+- **v0.2.0-rc10**: DIAGNOSTIC - Shows "KRONOS vkCreateBuffer called (v0.2.0-rc10)" if using correct implementation
+- **v0.2.0-rc9**: API now explicitly uses implementation functions (but external apps might still use system Vulkan)
 - **v0.2.0-rc8**: API layer logging revealed calls were bypassing implementation 
 - **v0.2.0-rc7**: Entry point logging confirmed implementation wasn't being called
 - **v0.2.0-rc6**: Enhanced debug logging! Shows why create_buffer might fail
@@ -73,15 +74,22 @@ In aggregated mode, Kronos Compute:
 ## Troubleshooting
 
 ### Buffer Creation Errors?
-If you see "ErrorInitializationFailed" when creating buffers:
-- v0.2.0-rc8 adds API layer logging
-- Enable detailed logging: `RUST_LOG=kronos_compute=info`
-- You should see in order:
-  1. "=== Kronos Implementation Initializing ===" during startup
-  2. "API layer calling vkCreateBuffer for device ..." when buffer is created
-  3. "=== vkCreateBuffer called ===" if implementation is reached
-- If you see 1 and 2 but not 3, there's a routing issue
-- If you don't see any of these, check your application setup
+
+**CRITICAL**: Do NOT link your application to system Vulkan when using Kronos!
+
+Kronos provides its own Vulkan implementation. If you link to both:
+- The dynamic linker might use system Vulkan's vkCreateBuffer instead of Kronos's
+- This breaks multi-GPU support because system Vulkan doesn't understand Kronos's aggregated mode
+
+To diagnose:
+- Enable logging: `RUST_LOG=kronos_compute=info`
+- Look for: "KRONOS vkCreateBuffer called (v0.2.0-rc10)"
+- If you don't see this, you're using system Vulkan by mistake
+
+How to fix:
+- Remove `-lvulkan` or `vulkan-1.lib` from your linker flags
+- Only link to `kronos_compute`
+- Kronos provides all the Vulkan functions you need
 
 ### Build Errors?
 If you see "undefined version" errors when building:
