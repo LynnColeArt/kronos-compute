@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc8] - 2025-08-31
+
+### Added
+- API layer logging to trace vkCreateBuffer calls
+- Shows when API layer calls vkCreateBuffer with device handle
+
+### Fixed
+- Confirmed that API layer uses the correct imports from crate root
+- When implementation feature is enabled, functions come from implementation module
+
+### Technical Details
+Added logging in the API layer before calling vkCreateBuffer to confirm the call
+flow. The API uses `crate::*` which should resolve to implementation functions
+when the implementation feature is enabled due to `pub use implementation::*` in lib.rs.
+
 ## [0.2.0-rc7] - 2025-08-31
 
 ### Added
@@ -194,7 +209,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc7...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc8...HEAD
+[0.2.0-rc8]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc7...v0.2.0-rc8
 [0.2.0-rc7]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc6...v0.2.0-rc7
 [0.2.0-rc6]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc5...v0.2.0-rc6
 [0.2.0-rc5]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc4...v0.2.0-rc5

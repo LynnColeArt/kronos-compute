@@ -2,6 +2,9 @@
 
 use super::*;
 use crate::*; // Import all functions from the crate root
+
+// When implementation feature is enabled, these should come from implementation module
+// Otherwise they would need to be provided by linking to an external Vulkan library
 use std::marker::PhantomData;
 use std::ptr;
 use std::slice;
@@ -156,6 +159,7 @@ impl ComputeContext {
             };
             
             let mut buffer = VkBuffer::NULL;
+            log::debug!("API layer calling vkCreateBuffer for device {:?}", inner.device);
             let result = vkCreateBuffer(inner.device, &buffer_info, ptr::null(), &mut buffer);
             
             if result != VkResult::Success {
