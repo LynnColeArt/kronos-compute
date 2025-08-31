@@ -2,18 +2,19 @@
 
 ## Quick Start
 
-To enable multi-GPU support in Kronos Compute v0.2.0-rc3:
+To enable multi-GPU support in Kronos Compute v0.2.0-rc4:
 
 ```bash
 export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc3
+## What's New in v0.2.0-rc4 🍬
 
+- **v0.2.0-rc4**: Multi-GPU WORKS! Fixed instance-level function loading in aggregated mode
 - **v0.2.0-rc3**: Fixed build errors! Now compiles without Vulkan linking issues
 - **v0.2.0-rc2**: Fixed multi-ICD enumeration to discover all GPUs
-- You should now be able to build and use multi-GPU support without the `VK_ICD_FILENAMES` workaround
+- You can now discover both AMD GPUs (integrated + 7900 XTX) without the `VK_ICD_FILENAMES` workaround!
 
 ## Environment Variables
 
@@ -73,7 +74,7 @@ If you see "undefined version" errors when building:
 - If you need to link to system Vulkan for some reason, set `KRONOS_LINK_VULKAN=1`
 
 ### Still Only Seeing llvmpipe?
-1. Ensure you're using v0.2.0-rc3 (fixes build) or v0.2.0-rc2 (fixes enumeration)
+1. Ensure you're using v0.2.0-rc4 (fixes everything!)
 2. Check that `KRONOS_AGGREGATE_ICD=1` is set
 3. Enable logging: `RUST_LOG=kronos_compute::implementation::icd_loader=info`
 
