@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 1 (v0.2.0-rc1): Windows support and Aggregated ICD mode! Cross-platform ICD loading with `libloading`, experimental multi-ICD aggregation, and Arc-based thread-safe lifetime management.**
+> **📦 Release Candidate 2 (v0.2.0-rc2): Multi-ICD enumeration fixed! Aggregated mode now properly discovers and stores all hardware ICDs for true multi-GPU support.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)

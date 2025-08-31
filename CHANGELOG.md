@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc2] - 2025-08-31
+
+### Fixed
+- Multi-ICD enumeration now properly stores all discovered ICDs for aggregated mode
+- `ALL_ICDS` is populated with all hardware ICDs during initialization
+- `discover_and_load_all_icds()` now uses already loaded ICDs instead of re-discovering
+
 ## [0.2.0-rc1] - 2025-08-31
 
 ### Added
@@ -124,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc1...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc2...HEAD
+[0.2.0-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc1...v0.2.0-rc2
 [0.2.0-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc3...v0.2.0-rc1
 [0.1.6-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...v0.1.6-rc3
 [0.1.6-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc1...v0.1.6-rc2

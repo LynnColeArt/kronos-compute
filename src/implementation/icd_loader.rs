@@ -257,6 +257,14 @@ pub fn get_all_icds() -> Vec<Arc<LoadedICD>> {
 
 /// Discover and load all ICDs (used in aggregated mode)
 pub fn discover_and_load_all_icds() -> Vec<Arc<LoadedICD>> {
+    // First try to get already loaded ICDs
+    let existing = get_all_icds();
+    if !existing.is_empty() {
+        info!("Using {} already loaded ICDs for aggregated mode", existing.len());
+        return existing;
+    }
+    
+    // If none loaded, do the discovery (fallback for direct calls)
     let mut out = Vec::new();
     let icd_files = discover_icds();
     if icd_files.is_empty() { return out; }
@@ -1022,6 +1030,13 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
           loaded_icds.iter().filter(|(_, is_sw, _)| !is_sw).count(),
           loaded_icds.iter().filter(|(_, is_sw, _)| *is_sw).count());
     
+    // Store all ICDs for aggregated mode BEFORE selecting the best one
+    let mut all_icds_vec = Vec::new();
+    for (icd, _, _) in &loaded_icds {
+        all_icds_vec.push(Arc::new(icd.clone()));
+    }
+    *ALL_ICDS.lock()? = all_icds_vec;
+    
     // Check for explicit preference
     let preferred = PREFERRED_ICD.lock().ok().and_then(|p| p.clone());
     let (best_icd, is_software, is_env_priority) = if let Some(pref) = preferred {
@@ -1056,13 +1071,6 @@ pub fn initialize_icd_loader() -> Result<(), IcdError> {
     } else {
         info!("Selected hardware Vulkan driver: {}", best_icd.library_path.display());
     }
-    
-    // Store all ICDs (after policy filtering) for aggregated mode
-    let mut all_vec = Vec::new();
-    all_vec.push(Arc::new(best_icd.clone()));
-    // NOTE: Remaining ICDs from loaded_icds iterator were consumed above. Re-discover for completeness if needed.
-    // For now, push only the selected best ICD; aggregated mode will re-run discovery if more are needed.
-    *ALL_ICDS.lock()? = all_vec;
     
     *ICD_LOADER.lock()? = Some(Arc::new(best_icd));
     Ok(())
