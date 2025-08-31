@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc3] - 2025-08-31
+
+### Fixed
+- Build errors due to Vulkan linking - now only links to system Vulkan when `KRONOS_LINK_VULKAN=1` is set
+- "undefined version" errors that prevented building on Linux systems
+
 ## [0.2.0-rc2] - 2025-08-31
 
 ### Fixed
@@ -131,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc2...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc3...HEAD
+[0.2.0-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc2...v0.2.0-rc3
 [0.2.0-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc1...v0.2.0-rc2
 [0.2.0-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc3...v0.2.0-rc1
 [0.1.6-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...v0.1.6-rc3

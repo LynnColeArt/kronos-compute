@@ -16,13 +16,12 @@ fn main() {
     // Link to the Kronos loader library (when available)
     // println!("cargo:rustc-link-lib=kronos_loader");
     
-    // For now, we can link to standard Vulkan for testing
-    if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=vulkan");
-    } else if cfg!(target_os = "windows") {
-        // Only link to vulkan-1 when explicitly requested. In many CI setups
-        // we rely on direct ICD loading without the Vulkan runtime.
-        if std::env::var("KRONOS_LINK_VULKAN").map(|v| v == "1").unwrap_or(false) {
+    // Kronos implements its own Vulkan loader, so we don't link to system Vulkan
+    // Only link when explicitly requested (e.g., for testing against real Vulkan)
+    if std::env::var("KRONOS_LINK_VULKAN").map(|v| v == "1").unwrap_or(false) {
+        if cfg!(target_os = "linux") {
+            println!("cargo:rustc-link-lib=vulkan");
+        } else if cfg!(target_os = "windows") {
             println!("cargo:rustc-link-lib=vulkan-1");
         }
     }

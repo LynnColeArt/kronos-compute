@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 2 (v0.2.0-rc2): Multi-ICD enumeration fixed! Aggregated mode now properly discovers and stores all hardware ICDs for true multi-GPU support.**
+> **📦 Release Candidate 3 (v0.2.0-rc3): Build fix! Resolved Vulkan linking errors. Multi-ICD aggregated mode now builds and runs correctly.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
