@@ -1,0 +1,53 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-unit-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build (no Vulkan link)
+        env:
+          KRONOS_LINK_VULKAN: "0"
+        run: |
+          cargo build --features implementation --verbose
+      - name: Run unit tests only
+        env:
+          KRONOS_LINK_VULKAN: "0"
+        run: |
+          cargo test --features implementation --lib --verbose
+
+  # Optional: Integration tests with SwiftShader or installed Vulkan SDK
+  # Uncomment and adjust download URL to enable full ICD tests
+  # integration-tests:
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #     - name: Install Vulkan SDK (optional)
+  #       run: choco install vulkan-sdk -y
+  #     - name: Download SwiftShader Vulkan (optional)
+  #       shell: powershell
+  #       run: |
+  #         $ErrorActionPreference = 'Stop'
+  #         Invoke-WebRequest -Uri "https://example.com/swiftshader-vulkan-windows.zip" -OutFile swiftshader.zip
+  #         Expand-Archive swiftshader.zip -DestinationPath $env:USERPROFILE\swiftshader
+  #     - name: Run ignored ICD tests
+  #       env:
+  #         VK_ICD_FILENAMES: ${{ env.USERPROFILE }}\swiftshader\vk_swiftshader_icd.json
+  #         KRONOS_ALLOW_UNTRUSTED_LIBS: "1"
+  #         KRONOS_RUN_ICD_TESTS: "1"
+  #       run: |
+  #         cargo test --features implementation --test safe_api_icd_select -- --ignored --nocapture
+  #         cargo test --features implementation --test icd_dispatch -- --ignored --nocapture
+  #         set KRONOS_AGGREGATE_ICD=1
+  #         cargo test --features implementation --test icd_aggregate_e2e -- --ignored --nocapture
+

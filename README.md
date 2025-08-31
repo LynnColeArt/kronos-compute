@@ -1,9 +1,10 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 3 (v0.1.6-rc3): AMD ICD discovery fixed and diagnostics improved! `library_path` is now resolved robustly (as-provided and manifest-relative), and loader logs are more actionable. Hardware drivers are detected automatically without `VK_ICD_FILENAMES`.**
+> **📦 Release Candidate 1 (v0.2.0-rc1): Windows support and Aggregated ICD mode! Cross-platform ICD loading with `libloading`, experimental multi-ICD aggregation, and Arc-based thread-safe lifetime management.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
+[![Windows CI](https://github.com/LynnColeArt/kronos-compute/actions/workflows/windows.yml/badge.svg)](https://github.com/LynnColeArt/kronos-compute/actions/workflows/windows.yml)
 [![License](https://img.shields.io/crates/l/kronos-compute.svg)](https://github.com/LynnColeArt/kronos-compute)
 
 A high-performance, compute-only Vulkan implementation in Rust, featuring state-of-the-art GPU compute optimizations.
@@ -56,7 +57,7 @@ Kronos Compute is a streamlined Vulkan implementation that removes all graphics 
 - Zero-cost abstractions
 - Memory safety guarantees
 
-### 4. **Smart ICD Loader** (Improved in v0.1.6)
+### 4. **Smart ICD Loader** (Enhanced in v0.2.0)
 - Automatically discovers all available Vulkan drivers
 - Prioritizes hardware drivers (AMD, NVIDIA, Intel) over software renderers
 - No manual `VK_ICD_FILENAMES` configuration needed
@@ -280,6 +281,34 @@ cargo run --example icd_select -- list
 cargo run --example icd_select -- index 0
 cargo run --example icd_select -- path /usr/lib/x86_64-linux-gnu/libvulkan_radeon.so
 ```
+
+### Aggregated Mode (Experimental)
+Aggregated mode exposes physical devices from multiple ICDs in a single instance and routes calls to the correct ICD by handle provenance.
+
+- Enable:
+```bash
+KRONOS_AGGREGATE_ICD=1 RUST_LOG=kronos_compute=info,kronos_compute::implementation::icd_loader=debug cargo run
+```
+
+- Behavior:
+  - `vkCreateInstance` creates a meta-instance wrapping per‑ICD instances.
+  - `vkEnumeratePhysicalDevices` returns a combined list across all ICDs.
+  - `vkCreateDevice` routes by the physical device’s owning ICD.
+  - Subsequent queue, pool, command buffer and all `vkCmd*` calls route by handle.
+
+- Caveats:
+  - Experimental: Intended for orchestration and testing; API surface remains Vulkan-compatible, but behavior is meta-loader-like.
+  - Performance: Routing adds a small handle→ICD lookup; negligible vs GPU work.
+  - Diagnostics: enable debug logs for provenance and routing visibility.
+
+### Windows CI / Headless Testing
+- Linking: on Windows, linking to `vulkan-1` is opt-in. Set `KRONOS_LINK_VULKAN=1` if the Vulkan runtime is installed. CI uses direct ICD loading by default.
+- Unit tests: run on `windows-latest` via `.github/workflows/windows.yml` without a GPU.
+- Optional ICD tests: provide a software ICD (e.g., SwiftShader) and set:
+  - `VK_ICD_FILENAMES` to the SwiftShader JSON path
+  - `KRONOS_ALLOW_UNTRUSTED_LIBS=1` (if path is outside trusted prefixes)
+  - `KRONOS_RUN_ICD_TESTS=1` to enable ignored tests
+  - (Optional) `KRONOS_AGGREGATE_ICD=1` to test aggregated enumeration
 
 ### Security Notes (ICD Loading)
 - Paths from `VK_ICD_FILENAMES` and discovery directories are canonicalized and validated.

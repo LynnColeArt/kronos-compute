@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc1] - 2025-08-31
+
+### Added
+- Windows loader support using `libloading`; Windows trust policy with opt-in override.
+- Aggregated ICD mode (experimental) behind `KRONOS_AGGREGATE_ICD=1`:
+  - Aggregated `vkEnumeratePhysicalDevices` across ICDs
+  - Per-handle routing for device/queue/command pool/cmd buffer and all `vkCmd*` calls
+  - Descriptor/buffer/memory/shader/pipeline creation routed by device mapping
+- New tests (ignored by default): safe API ICD selection, dispatch sanity, aggregated E2E, aggregated stress
+
+### Changed
+- Safer loader lifetime (Arc instead of unsafe 'static); replace-on-write update helpers
+- Path canonicalization + trust policy for ICD discovery and loading
+
+### Docs
+- README: Windows CI/headless testing; ICD selection; Aggregated mode usage
+
 ## [0.1.6-rc3] - 2025-08-29
 
 ### Fixed
@@ -107,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc1...HEAD
+[0.2.0-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc3...v0.2.0-rc1
 [0.1.6-rc3]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc2...v0.1.6-rc3
 [0.1.6-rc2]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.6-rc1...v0.1.6-rc2
 [0.1.6-rc1]: https://github.com/LynnColeArt/kronos-compute/compare/v0.1.5-rc3...v0.1.6-rc1

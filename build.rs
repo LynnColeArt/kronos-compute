@@ -20,7 +20,11 @@ fn main() {
     if cfg!(target_os = "linux") {
         println!("cargo:rustc-link-lib=vulkan");
     } else if cfg!(target_os = "windows") {
-        println!("cargo:rustc-link-lib=vulkan-1");
+        // Only link to vulkan-1 when explicitly requested. In many CI setups
+        // we rely on direct ICD loading without the Vulkan runtime.
+        if std::env::var("KRONOS_LINK_VULKAN").map(|v| v == "1").unwrap_or(false) {
+            println!("cargo:rustc-link-lib=vulkan-1");
+        }
     }
     
     // Re-run build if the Kronos headers change

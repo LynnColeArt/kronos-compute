@@ -29,7 +29,7 @@
 
 1. **Prepare Release Branch**
    ```bash
-   git checkout -b release/v0.1.0
+   git checkout -b release/v0.2.0
    ```
 
 2. **Update Version**
@@ -39,18 +39,18 @@
 
 3. **Create Changelog Entry**
    ```bash
-   echo "## v0.1.0 - $(date +%Y-%m-%d)" >> CHANGELOG.md
+   echo "## v0.2.0 - $(date +%Y-%m-%d)" >> CHANGELOG.md
    ```
 
 4. **Commit Changes**
    ```bash
    git add -A
-   git commit -m "chore: prepare v0.1.0 release"
+   git commit -m "chore: prepare v0.2.0 release"
    ```
 
 5. **Create Tag**
    ```bash
-   git tag -a v0.1.0 -m "Release v0.1.0 - Initial Release
+   git tag -a v0.2.0 -m "Release v0.2.0 - Windows Support & Aggregated ICD Mode
 
    Features:
    - Core Vulkan compute API implementation
@@ -64,8 +64,8 @@
 
 6. **Push to GitHub**
    ```bash
-   git push origin release/v0.1.0
-   git push origin v0.1.0
+   git push origin release/v0.2.0
+   git push origin v0.2.0
    ```
 
 7. **Publish to crates.io**
@@ -76,7 +76,7 @@
 8. **Create GitHub Release**
    - Go to https://github.com/LynnColeArt/kronos-compute/releases
    - Click "Draft a new release"
-   - Select the v0.1.0 tag
+   - Select the v0.2.0 tag
    - Use tag message as release notes
    - Attach pre-built binaries if available
 
@@ -85,7 +85,7 @@
 1. **Merge Release Branch**
    ```bash
    git checkout main
-   git merge release/v0.1.0
+   git merge release/v0.2.0
    git push origin main
    ```
 
