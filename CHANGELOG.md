@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-rc11] - 2025-08-31
+
+### Fixed
+- Safe API crash with corrupted stack when calling ComputeContext::new()
+- Fixed device name string handling to prevent potential buffer overruns
+- Added comprehensive debug logging throughout safe API initialization
+- Fixed type conversion issue with device name (i8 to u8)
+
+### Changed
+- Safe API now provides detailed logging when RUST_LOG is enabled
+- Improved error handling to show specific failure points
+
+### Known Issues
+- Safe API returns DeviceNotFound in single-ICD mode (no devices enumerated)
+- Safe API returns ErrorFeatureNotPresent in aggregated mode when creating device
+- Selecting ICD by path may cause segfault (selecting by index works)
+
 ## [0.2.0-rc10] - 2025-08-31
 
 ### Added
@@ -239,7 +256,8 @@ prevented device enumeration from working.
 - Timeline semaphore support requires Vulkan 1.2 or extensions
 - Limited to compute operations only (no graphics)
 
-[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc10...HEAD
+[Unreleased]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc11...HEAD
+[0.2.0-rc11]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc10...v0.2.0-rc11
 [0.2.0-rc10]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc9...v0.2.0-rc10
 [0.2.0-rc9]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc8...v0.2.0-rc9
 [0.2.0-rc8]: https://github.com/LynnColeArt/kronos-compute/compare/v0.2.0-rc7...v0.2.0-rc8

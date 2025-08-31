@@ -9,8 +9,9 @@ export KRONOS_AGGREGATE_ICD=1
 ./your_application
 ```
 
-## What's New in v0.2.0-rc10 🍬
+## What's New in v0.2.0-rc11 🍬
 
+- **v0.2.0-rc11**: Safe API crash fixed! Added comprehensive logging, but device enumeration issues remain
 - **v0.2.0-rc10**: DIAGNOSTIC - Shows "KRONOS vkCreateBuffer called (v0.2.0-rc10)" if using correct implementation
 - **v0.2.0-rc9**: API now explicitly uses implementation functions (but external apps might still use system Vulkan)
 - **v0.2.0-rc8**: API layer logging revealed calls were bypassing implementation 

@@ -49,34 +49,60 @@ unsafe impl Sync for ComputeContext {}
 
 impl ComputeContext {
     pub(super) fn new_with_config(config: ContextConfig) -> Result<Self> {
+        log::info!("[SAFE API] ComputeContext::new_with_config() called");
         unsafe {
             // Apply preferred ICD selection (process-wide for now)
+            log::info!("[SAFE API] Applying ICD preferences");
             if let Some(ref p) = config.preferred_icd_path {
+                log::info!("[SAFE API] Setting preferred ICD path: {:?}", p);
                 crate::implementation::icd_loader::set_preferred_icd_path(p.clone());
             } else if let Some(i) = config.preferred_icd_index {
+                log::info!("[SAFE API] Setting preferred ICD index: {}", i);
                 crate::implementation::icd_loader::set_preferred_icd_index(i);
             }
 
             // Initialize Kronos ICD loader
+            log::info!("[SAFE API] Initializing Kronos ICD loader");
+            log::info!("[SAFE API] KRONOS_AGGREGATE_ICD = {:?}", std::env::var("KRONOS_AGGREGATE_ICD").ok());
             initialize_kronos()
-                .map_err(|e| KronosError::InitializationFailed(e.to_string()))?;
+                .map_err(|e| {
+                    log::error!("[SAFE API] Failed to initialize Kronos: {:?}", e);
+                    KronosError::InitializationFailed(e.to_string())
+                })?;
+            log::info!("[SAFE API] Kronos initialized successfully");
             
             // Create instance
+            log::info!("[SAFE API] Creating Vulkan instance");
             let instance = Self::create_instance(&config)?;
+            log::info!("[SAFE API] Instance created: {:?}", instance);
             
             // Find compute-capable device
+            log::info!("[SAFE API] Finding compute-capable device");
             let (physical_device, queue_family_index) = Self::find_compute_device(instance)?;
+            log::info!("[SAFE API] Found device: {:?}, queue family: {}", physical_device, queue_family_index);
             
             // Get device properties
+            log::info!("[SAFE API] Getting device properties");
             let mut device_properties = VkPhysicalDeviceProperties::default();
             vkGetPhysicalDeviceProperties(physical_device, &mut device_properties);
+            log::info!("[SAFE API] Got device properties successfully");
             
             let mut memory_properties = VkPhysicalDeviceMemoryProperties::default();
+            log::info!("[SAFE API] Getting memory properties");
             vkGetPhysicalDeviceMemoryProperties(physical_device, &mut memory_properties);
+            log::info!("[SAFE API] Got memory properties successfully");
             
             // Log selected device info
-            let device_name = std::ffi::CStr::from_ptr(device_properties.deviceName.as_ptr())
-                .to_string_lossy();
+            // deviceName is a fixed-size array, ensure it's null-terminated
+            let device_name_bytes = &device_properties.deviceName;
+            let null_pos = device_name_bytes.iter().position(|&c| c == 0).unwrap_or(device_name_bytes.len());
+            // Convert from &[i8] to &[u8] for from_utf8
+            let device_name_u8: Vec<u8> = device_name_bytes[..null_pos]
+                .iter()
+                .map(|&c| c as u8)
+                .collect();
+            let device_name = std::str::from_utf8(&device_name_u8)
+                .unwrap_or("Unknown Device");
             let device_type_str = match device_properties.deviceType {
                 VkPhysicalDeviceType::DiscreteGpu => "Discrete GPU",
                 VkPhysicalDeviceType::IntegratedGpu => "Integrated GPU",
@@ -87,13 +113,19 @@ impl ComputeContext {
             log::info!("Selected Vulkan device: {} ({})", device_name, device_type_str);
             
             // Create logical device
+            log::info!("[SAFE API] Creating logical device");
             let (device, queue) = Self::create_device(physical_device, queue_family_index)?;
+            log::info!("[SAFE API] Device created: {:?}, queue: {:?}", device, queue);
             
             // Create descriptor pool for persistent descriptors
+            log::info!("[SAFE API] Creating descriptor pool");
             let descriptor_pool = Self::create_descriptor_pool(device)?;
+            log::info!("[SAFE API] Descriptor pool created: {:?}", descriptor_pool);
             
             // Create command pool
+            log::info!("[SAFE API] Creating command pool");
             let command_pool = Self::create_command_pool(device, queue_family_index)?;
+            log::info!("[SAFE API] Command pool created: {:?}", command_pool);
             
             let inner = ContextInner {
                 instance,
@@ -117,9 +149,11 @@ impl ComputeContext {
                 );
             }
 
-            Ok(Self {
+            let result = Self {
                 inner: Arc::new(Mutex::new(inner)),
-            })
+            };
+            log::info!("[SAFE API] ComputeContext created successfully");
+            Ok(result)
         }
     }
     
@@ -133,9 +167,11 @@ impl ComputeContext {
     /// - The config strings must remain valid for the lifetime of the instance creation
     /// - Null or invalid pointers in the create info will cause undefined behavior
     unsafe fn create_instance(config: &ContextConfig) -> Result<VkInstance> {
+        log::info!("[SAFE API] create_instance called with app_name: {}", config.app_name);
         let app_name = CString::new(config.app_name.clone())
             .unwrap_or_else(|_| CString::new("Kronos App").unwrap());
         let engine_name = CString::new("Kronos Compute").unwrap();
+        log::info!("[SAFE API] CStrings created successfully");
         
         let app_info = VkApplicationInfo {
             sType: VkStructureType::ApplicationInfo,
@@ -159,12 +195,18 @@ impl ComputeContext {
         };
         
         let mut instance = VkInstance::NULL;
+        // IMPORTANT: CStrings must remain alive during vkCreateInstance call
+        // They are dropped at the end of this function, which is safe
+        log::info!("[SAFE API] Calling vkCreateInstance");
         let result = vkCreateInstance(&create_info, ptr::null(), &mut instance);
+        log::info!("[SAFE API] vkCreateInstance returned: {:?}", result);
         
         if result != VkResult::Success {
+            log::error!("[SAFE API] vkCreateInstance failed with: {:?}", result);
             return Err(KronosError::from(result));
         }
         
+        log::info!("[SAFE API] Instance created successfully: {:?}", instance);
         Ok(instance)
     }
     
@@ -179,7 +221,9 @@ impl ComputeContext {
     /// - Accessing the device after instance destruction is undefined behavior
     unsafe fn find_compute_device(instance: VkInstance) -> Result<(VkPhysicalDevice, u32)> {
         let mut device_count = 0;
+        log::info!("[SAFE API] Enumerating physical devices...");
         vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        log::info!("[SAFE API] Found {} physical devices", device_count);
         
         if device_count == 0 {
             return Err(KronosError::DeviceNotFound);
@@ -275,7 +319,9 @@ impl ComputeContext {
             pQueuePriorities: &queue_priority,
         };
         
+        // Don't request any features - use default (all disabled)
         let features = VkPhysicalDeviceFeatures::default();
+        log::info!("[SAFE API] Creating device with default features (all disabled)");
         
         let device_create_info = VkDeviceCreateInfo {
             sType: VkStructureType::DeviceCreateInfo,
@@ -291,9 +337,12 @@ impl ComputeContext {
         };
         
         let mut device = VkDevice::NULL;
+        log::info!("[SAFE API] Calling vkCreateDevice with queue family index {}", queue_family_index);
         let result = vkCreateDevice(physical_device, &device_create_info, ptr::null(), &mut device);
+        log::info!("[SAFE API] vkCreateDevice returned: {:?}", result);
         
         if result != VkResult::Success {
+            log::error!("[SAFE API] Failed to create device: {:?}", result);
             return Err(KronosError::from(result));
         }
         

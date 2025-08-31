@@ -1,6 +1,6 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 10 (v0.2.0-rc10): Diagnostic version - DO NOT link to system Vulkan! 🍬 Kronos IS the Vulkan implementation.**
+> **📦 Release Candidate 11 (v0.2.0-rc11): Safe API fixes - crash resolved but device enumeration issues remain 🍬**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
