@@ -1,120 +1,113 @@
-//! REAL Kronos instance implementation - NO ICD forwarding!
+//! Instance creation and management
 
 use crate::sys::*;
 use crate::core::*;
 use crate::ffi::*;
 use std::ptr;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
-use std::collections::HashMap;
+use std::sync::Arc;
 
-// Instance handle counter
-static INSTANCE_COUNTER: AtomicU64 = AtomicU64::new(1);
-
-// Registry of active instances
-lazy_static::lazy_static! {
-    static ref INSTANCES: Mutex<HashMap<u64, InstanceData>> = Mutex::new(HashMap::new());
-}
-
-struct InstanceData {
-    app_info: ApplicationInfo,
-    enabled_extensions: Vec<String>,
-}
-
-struct ApplicationInfo {
-    app_name: String,
-    app_version: u32,
-    engine_name: String,
-    engine_version: u32,
-    api_version: u32,
-}
-
-/// Create a Kronos instance - REAL implementation, no ICD forwarding
+/// Create a Kronos instance
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. pCreateInfo points to a valid VkInstanceCreateInfo structure
+// 2. pAllocator is either null or points to valid allocation callbacks
+// 3. pInstance points to valid memory for writing the instance handle
+// 4. All pointers remain valid for the duration of this call
 #[no_mangle]
 pub unsafe extern "C" fn vkCreateInstance(
     pCreateInfo: *const VkInstanceCreateInfo,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
     pInstance: *mut VkInstance,
 ) -> VkResult {
+    // Validate inputs
     if pCreateInfo.is_null() || pInstance.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    let create_info = &*pCreateInfo;
-    
-    // Extract application info
-    let app_info = if !create_info.pApplicationInfo.is_null() {
-        let info = &*create_info.pApplicationInfo;
-        ApplicationInfo {
-            app_name: c_str_to_string(info.pApplicationName).unwrap_or_default(),
-            app_version: info.applicationVersion,
-            engine_name: c_str_to_string(info.pEngineName).unwrap_or_default(),
-            engine_version: info.engineVersion,
-            api_version: info.apiVersion,
+    // Aggregated mode: create per-ICD instances and return a meta instance
+    if crate::implementation::icd_loader::aggregated_mode_enabled() {
+        let all = crate::implementation::icd_loader::discover_and_load_all_icds();
+        let mut inners = Vec::new();
+        for icd_arc in all {
+            if let Some(create_instance_fn) = icd_arc.create_instance {
+                let mut inner_inst = VkInstance::NULL;
+                let res = create_instance_fn(pCreateInfo, pAllocator, &mut inner_inst);
+                if res == VkResult::Success && !inner_inst.is_null() {
+                    // Clone the ICD and load instance functions
+                    let mut icd_copy = (*icd_arc).clone();
+                    if let Err(e) = crate::implementation::icd_loader::load_instance_functions_for_icd(&mut icd_copy, inner_inst) {
+                        log::warn!("Failed to load instance functions for ICD: {:?}", e);
+                        // Still include it, some functions might work
+                    }
+                    inners.push((Arc::new(icd_copy), inner_inst));
+                }
+            }
         }
-    } else {
-        ApplicationInfo {
-            app_name: String::new(),
-            app_version: 0,
-            engine_name: String::new(),
-            engine_version: 0,
-            api_version: VK_API_VERSION_1_0,
+        if inners.is_empty() {
+            return VkResult::ErrorInitializationFailed;
         }
-    };
-    
-    // Check API version - we only support compute
-    if app_info.api_version > VK_API_VERSION_1_3 {
-        return VkResult::ErrorIncompatibleDriver;
+        let meta_id = crate::implementation::icd_loader::new_meta_instance_id();
+        *pInstance = VkInstance::from_raw(meta_id);
+        crate::implementation::icd_loader::set_meta_instance(meta_id, inners);
+        return VkResult::Success;
     }
     
-    // Parse enabled extensions
-    let mut extensions = Vec::new();
-    for i in 0..create_info.enabledExtensionCount {
-        let ext_name = *create_info.ppEnabledExtensionNames.add(i as usize);
-        if let Some(name) = c_str_to_string(ext_name) {
-            // We don't support any extensions for compute-only
-            log::warn!("Extension requested but not supported: {}", name);
-            // Don't fail, just ignore
-            extensions.push(name);
+    // Try to use real Vulkan driver (single ICD)
+    if let Some(icd) = super::icd_loader::get_icd() {
+        if let Some(create_instance_fn) = icd.create_instance {
+            let result = create_instance_fn(pCreateInfo, pAllocator, pInstance);
+            
+            // If successful, load instance functions
+            if result == VkResult::Success {
+                log::info!("[vkCreateInstance] Single-ICD mode: Loading instance functions for instance {:?}", *pInstance);
+                match super::icd_loader::update_instance_functions(*pInstance) {
+                    Ok(()) => log::info!("[vkCreateInstance] Successfully loaded instance functions"),
+                    Err(e) => log::error!("[vkCreateInstance] Failed to load instance functions: {:?}", e),
+                }
+            }
+            
+            return result;
         }
     }
     
-    // Create instance handle
-    let handle = INSTANCE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    
-    // Store instance data
-    let instance_data = InstanceData {
-        app_info,
-        enabled_extensions: extensions,
-    };
-    
-    INSTANCES.lock().unwrap().insert(handle, instance_data);
-    
-    // Return handle
-    *pInstance = VkInstance::from_raw(handle);
-    
-    log::info!("Created Kronos instance {:?} - compute-only, no ICD", handle);
-    
-    VkResult::Success
+    // No ICD available
+    VkResult::ErrorInitializationFailed
 }
 
 /// Destroy instance
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. instance is a valid VkInstance created by vkCreateInstance
+// 2. pAllocator matches the allocator used in vkCreateInstance (or both are null)
+// 3. All objects created from this instance have been destroyed
 #[no_mangle]
 pub unsafe extern "C" fn vkDestroyInstance(
     instance: VkInstance,
-    _pAllocator: *const VkAllocationCallbacks,
+    pAllocator: *const VkAllocationCallbacks,
 ) {
     if instance.is_null() {
         return;
     }
+    // Aggregated mode: destroy all inner instances
+    if crate::implementation::icd_loader::aggregated_mode_enabled() {
+        if let Some(inners) = crate::implementation::icd_loader::take_meta_instance(instance.as_raw()) {
+            for (icd, inner) in inners {
+                if let Some(f) = icd.destroy_instance { f(inner, pAllocator); }
+            }
+            return;
+        }
+    }
     
-    let handle = instance.as_raw();
-    INSTANCES.lock().unwrap().remove(&handle);
-    
-    log::info!("Destroyed Kronos instance {:?}", handle);
+    // Forward to real ICD if available
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(destroy_instance) = icd.destroy_instance {
+            destroy_instance(instance, pAllocator);
+        }
+    }
 }
 
-/// Enumerate physical devices - return our virtual compute device
+/// Enumerate physical devices (GPUs)
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. instance is a valid VkInstance
+// 2. pPhysicalDeviceCount points to valid memory
+// 3. If pPhysicalDevices is not null, it points to an array of at least *pPhysicalDeviceCount elements
 #[no_mangle]
 pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     instance: VkInstance,
@@ -124,38 +117,156 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     if instance.is_null() || pPhysicalDeviceCount.is_null() {
         return VkResult::ErrorInitializationFailed;
     }
-    
-    // Verify instance exists
-    let handle = instance.as_raw();
-    if !INSTANCES.lock().unwrap().contains_key(&handle) {
-        return VkResult::ErrorDeviceLost;
+    // Aggregated mode: sum counts across all inner instances for this meta instance
+    if crate::implementation::icd_loader::aggregated_mode_enabled() {
+        if let Some(inners) = crate::implementation::icd_loader::meta_instance_for(instance.as_raw()) {
+            let mut total = 0u32;
+            // First pass: count
+            for (icd, inner) in &inners {
+                if let Some(f) = icd.enumerate_physical_devices {
+                    let mut count = 0u32;
+                    let _ = f(*inner, &mut count, ptr::null_mut());
+                    total = total.saturating_add(count);
+                }
+            }
+            if pPhysicalDevices.is_null() {
+                *pPhysicalDeviceCount = total;
+                return VkResult::Success;
+            }
+            // Second pass: fill up to provided capacity
+            let cap = unsafe { *pPhysicalDeviceCount as usize };
+            let mut filled = 0usize;
+            for (icd, inner) in &inners {
+                if let Some(f) = icd.enumerate_physical_devices {
+                    if filled >= cap { break; }
+                    let mut count = (cap - filled) as u32;
+                    let buf_ptr = unsafe { pPhysicalDevices.add(filled) };
+                    let res = f(*inner, &mut count, buf_ptr);
+                    if res == VkResult::Success || res == VkResult::Incomplete {
+                        // Register ownership
+                        for i in 0..count as isize {
+                            let pd = unsafe { *buf_ptr.offset(i) };
+                            crate::implementation::icd_loader::register_physical_device_icd(pd, icd);
+                        }
+                        filled += count as usize;
+                    }
+                }
+            }
+            // Set actual filled count
+            unsafe { *pPhysicalDeviceCount = filled as u32; }
+            if filled < total as usize { return VkResult::Incomplete; }
+            return VkResult::Success;
+        }
     }
     
-    // We have exactly 1 virtual compute device
-    if pPhysicalDevices.is_null() {
-        *pPhysicalDeviceCount = 1;
-        return VkResult::Success;
+    // Forward to real ICD (single)
+    log::debug!("[vkEnumeratePhysicalDevices] Single-ICD mode, forwarding to ICD");
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        log::debug!("[vkEnumeratePhysicalDevices] Got ICD, checking enumerate function");
+        if let Some(enumerate_physical_devices) = icd.enumerate_physical_devices {
+            log::debug!("[vkEnumeratePhysicalDevices] Calling ICD's enumerate function");
+            let result = enumerate_physical_devices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+            if pPhysicalDevices.is_null() {
+                log::info!("[vkEnumeratePhysicalDevices] Query returned {} devices", unsafe { *pPhysicalDeviceCount });
+            }
+            return result;
+        } else {
+            log::warn!("[vkEnumeratePhysicalDevices] ICD loaded but enumerate_physical_devices function pointer is null");
+        }
+    } else {
+        log::warn!("No ICD available for enumerate_physical_devices");
     }
     
-    let count = *pPhysicalDeviceCount;
-    if count == 0 {
-        return VkResult::Incomplete;
-    }
-    
-    // Return our virtual device
-    *pPhysicalDevices = VkPhysicalDevice::from_raw(1); // Fixed ID for our device
-    *pPhysicalDeviceCount = 1;
-    
-    VkResult::Success
+    // No ICD available
+    VkResult::ErrorInitializationFailed
 }
 
-// Helper to convert C string to Rust String
-unsafe fn c_str_to_string(ptr: *const i8) -> Option<String> {
-    if ptr.is_null() {
-        return None;
+/// Get physical device properties
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. physicalDevice is a valid VkPhysicalDevice obtained from vkEnumeratePhysicalDevices
+// 2. pProperties points to valid memory for a VkPhysicalDeviceProperties structure
+#[no_mangle]
+pub unsafe extern "C" fn vkGetPhysicalDeviceProperties(
+    physicalDevice: VkPhysicalDevice,
+    pProperties: *mut VkPhysicalDeviceProperties,
+) {
+    log::debug!("[vkGetPhysicalDeviceProperties] Called with device {:?}", physicalDevice);
+    if physicalDevice.is_null() || pProperties.is_null() {
+        log::error!("[vkGetPhysicalDeviceProperties] Null pointer provided");
+        return;
     }
-    std::ffi::CStr::from_ptr(ptr)
-        .to_str()
-        .ok()
-        .map(|s| s.to_string())
+    // Route by owning ICD if known
+    if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
+        log::debug!("[vkGetPhysicalDeviceProperties] Found ICD for device, routing call");
+        if let Some(f) = icd.get_physical_device_properties { 
+            f(physicalDevice, pProperties); 
+        } else {
+            log::error!("[vkGetPhysicalDeviceProperties] ICD has no get_physical_device_properties function!");
+        }
+        return;
+    }
+    log::debug!("[vkGetPhysicalDeviceProperties] No ICD found for device, using fallback");
+    // Fallback to single ICD
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(f) = icd.get_physical_device_properties { 
+            f(physicalDevice, pProperties); 
+        } else {
+            log::error!("[vkGetPhysicalDeviceProperties] Fallback ICD has no get_physical_device_properties function!");
+        }
+    } else {
+        log::error!("[vkGetPhysicalDeviceProperties] No fallback ICD available!");
+    }
+}
+
+/// Get physical device memory properties
+// SAFETY: This function is called from C code. Caller must ensure:
+// 1. physicalDevice is a valid VkPhysicalDevice obtained from vkEnumeratePhysicalDevices
+// 2. pMemoryProperties points to valid memory for a VkPhysicalDeviceMemoryProperties structure
+#[no_mangle]
+pub unsafe extern "C" fn vkGetPhysicalDeviceMemoryProperties(
+    physicalDevice: VkPhysicalDevice,
+    pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
+) {
+    if physicalDevice.is_null() || pMemoryProperties.is_null() {
+        return;
+    }
+    if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
+        if let Some(f) = icd.get_physical_device_memory_properties { f(physicalDevice, pMemoryProperties); }
+        return;
+    }
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(f) = icd.get_physical_device_memory_properties { f(physicalDevice, pMemoryProperties); }
+    }
+}
+
+/// Get physical device queue family properties
+#[no_mangle]
+pub unsafe extern "C" fn vkGetPhysicalDeviceQueueFamilyProperties(
+    physicalDevice: VkPhysicalDevice,
+    pQueueFamilyPropertyCount: *mut u32,
+    pQueueFamilyProperties: *mut VkQueueFamilyProperties,
+) {
+    if physicalDevice.is_null() || pQueueFamilyPropertyCount.is_null() {
+        return;
+    }
+    // Try to route by physical device ownership first
+    if let Some(icd) = crate::implementation::icd_loader::icd_for_physical_device(physicalDevice) {
+        log::debug!("[vkGetPhysicalDeviceQueueFamilyProperties] Found ICD for physical device");
+        if let Some(f) = icd.get_physical_device_queue_family_properties { 
+            f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); 
+        }
+        return;
+    }
+    // Fallback to single ICD
+    log::debug!("[vkGetPhysicalDeviceQueueFamilyProperties] Using fallback single ICD");
+    if let Some(icd) = super::forward::get_icd_if_enabled() {
+        if let Some(f) = icd.get_physical_device_queue_family_properties { 
+            log::debug!("[vkGetPhysicalDeviceQueueFamilyProperties] Calling ICD function");
+            f(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties); 
+        } else {
+            log::warn!("[vkGetPhysicalDeviceQueueFamilyProperties] Function pointer is null");
+        }
+    } else {
+        log::warn!("[vkGetPhysicalDeviceQueueFamilyProperties] No ICD available");
+    }
 }

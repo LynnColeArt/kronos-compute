@@ -104,7 +104,17 @@ impl ContextBuilder {
         self
     }
     
-    // REMOVED: ICD preferences - Kronos is now a pure Rust implementation
+    /// Prefer a specific ICD by its resolved library path
+    pub fn prefer_icd_path<P: Into<std::path::PathBuf>>(mut self, path: P) -> Self {
+        self.config.preferred_icd_path = Some(path.into());
+        self
+    }
+    
+    /// Prefer a specific ICD by index (from available_icds())
+    pub fn prefer_icd_index(mut self, index: usize) -> Self {
+        self.config.preferred_icd_index = Some(index);
+        self
+    }
     
     pub fn build(self) -> Result<ComputeContext> {
         ComputeContext::new_with_config(self.config)

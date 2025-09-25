@@ -53,8 +53,20 @@ impl ComputeContext {
     pub(super) fn new_with_config(config: ContextConfig) -> Result<Self> {
         log::info!("[SAFE API] ComputeContext::new_with_config() called");
         unsafe {
-            // Initialize Kronos pure Rust implementation
-            log::info!("[SAFE API] Initializing Kronos pure Rust implementation");
+            // Apply preferred ICD selection BEFORE initialization
+            // This is crucial - preferences must be set before initialize_kronos()
+            log::info!("[SAFE API] Applying ICD preferences");
+            if let Some(ref p) = config.preferred_icd_path {
+                log::info!("[SAFE API] Setting preferred ICD path: {:?}", p);
+                crate::implementation::icd_loader::set_preferred_icd_path(p.clone());
+            } else if let Some(i) = config.preferred_icd_index {
+                log::info!("[SAFE API] Setting preferred ICD index: {}", i);
+                crate::implementation::icd_loader::set_preferred_icd_index(i);
+            }
+
+            // Initialize Kronos ICD loader
+            log::info!("[SAFE API] Initializing Kronos ICD loader");
+            log::info!("[SAFE API] KRONOS_AGGREGATE_ICD = {:?}", std::env::var("KRONOS_AGGREGATE_ICD").ok());
             initialize_kronos()
                 .map_err(|e| {
                     log::error!("[SAFE API] Failed to initialize Kronos: {:?}", e);
@@ -134,8 +146,15 @@ impl ComputeContext {
                 memory_properties,
             };
             
-            // Log that we're using pure Rust implementation
-            log::info!("ComputeContext using Kronos pure Rust implementation");
+            // Log selected ICD info
+            if let Some(info) = crate::implementation::icd_loader::selected_icd_info() {
+                log::info!(
+                    "ComputeContext bound to ICD: {} ({}), api=0x{:x}",
+                    info.library_path.display(),
+                    if info.is_software { "software" } else { "hardware" },
+                    info.api_version
+                );
+            }
 
             let result = Self {
                 inner: Arc::new(Mutex::new(inner)),
@@ -360,9 +379,6 @@ impl ComputeContext {
         let mut queue = VkQueue::NULL;
         vkGetDeviceQueue(device, queue_family_index, 0, &mut queue);
         
-        // No ICD registration needed - we're using pure Rust implementation!
-        log::info!("[SAFE API] Device created with pure Rust implementation");
-        
         Ok((device, queue))
     }
     
@@ -452,7 +468,10 @@ impl ComputeContext {
         self.inner.lock().unwrap().device_properties
     }
     
-    // REMOVED: icd_info() - Kronos is now a pure Rust implementation
+    /// Get information about the ICD bound to this context (process-wide)
+    pub fn icd_info(&self) -> Option<crate::implementation::icd_loader::IcdInfo> {
+        crate::implementation::icd_loader::selected_icd_info()
+    }
 
     // Internal helper for other modules
     pub(super) fn with_inner<F, R>(&self, f: F) -> R
