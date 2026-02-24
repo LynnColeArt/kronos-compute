@@ -381,7 +381,7 @@ impl ComputeContext {
         
         for (index, family) in queue_families.iter().enumerate() {
             log::info!("[SAFE API] Queue family {}: flags={:?}", index, family.queueFlags);
-            if family.queueFlags.contains(VkQueueFlags::COMPUTE) {
+            if family.queueFlags.contains(VkQueueFlags::COMPUTE) && family.queueCount > 0 {
                 log::info!("[SAFE API] Found compute queue at index {}", index);
                 return Ok(Some(index as u32));
             }
