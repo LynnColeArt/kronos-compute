@@ -1,6 +1,24 @@
 #!/bin/bash
 # AMD GPU Benchmark Script for Kronos
 
+resolve_temp_dir() {
+    local tmp_dir=""
+    tmp_dir="${TMPDIR:-$TEMP}"
+    if [ -z "$tmp_dir" ]; then
+        tmp_dir="$TMP"
+    fi
+    if [ -z "$tmp_dir" ]; then
+        tmp_dir="/tmp"
+    fi
+    if [ ! -d "$tmp_dir" ] || [ ! -w "$tmp_dir" ]; then
+        tmp_dir="/tmp"
+    fi
+    echo "$tmp_dir"
+}
+
+TEMP_ROOT="$(mktemp -d "$(resolve_temp_dir)/kronos-amd-bench-XXXXXX")"
+trap 'rm -rf "$TEMP_ROOT"' EXIT
+
 echo "======================================="
 echo "Kronos AMD GPU Validation"
 echo "======================================="
@@ -54,7 +72,7 @@ echo ""
 echo "6. Performance Metrics Check:"
 echo "----------------------------"
 # Run a simplified perf test
-cat > /tmp/amd_perf_test.rs << 'EOF'
+cat > "${TEMP_ROOT}/amd_perf_test.rs" << 'EOF'
 use std::time::Instant;
 
 fn main() {
@@ -82,8 +100,7 @@ fn main() {
 }
 EOF
 
-rustc /tmp/amd_perf_test.rs -o /tmp/amd_perf_test && /tmp/amd_perf_test
-rm -f /tmp/amd_perf_test /tmp/amd_perf_test.rs
+rustc "${TEMP_ROOT}/amd_perf_test.rs" -o "${TEMP_ROOT}/amd_perf_test" && "${TEMP_ROOT}/amd_perf_test"
 echo ""
 
 echo "7. Optimization Summary:"

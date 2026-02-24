@@ -275,12 +275,16 @@ impl ComputeContext {
         let mut supported_candidates = candidates
             .iter()
             .filter(|(_, _, _, vendor_id, _)| Self::is_supported_vendor(*vendor_id))
+            .map(|(device, queue_index, device_type, vendor_id, name)| {
+                (*device, *queue_index, *device_type, *vendor_id, name.clone())
+            })
             .collect::<Vec<_>>();
 
         if let Some(preferred_vendor_id) = preferred_vendor {
             let preferred_devices = supported_candidates
                 .iter()
-                .filter(|(_, _, _, vendor_id, _)| **vendor_id == preferred_vendor_id)
+                .filter(|candidate| candidate.3 == preferred_vendor_id)
+                .map(|candidate| (*candidate).clone())
                 .collect::<Vec<_>>();
 
             if !preferred_devices.is_empty() {

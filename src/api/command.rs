@@ -166,11 +166,14 @@ impl CommandBuilder {
                 if has_bindings {
                     if use_persistent_descriptors {
                         #[cfg(feature = "implementation")]
-                        let persistent_buffers: Vec<VkBuffer> = self.bindings.iter().map(|(_, buffer)| buffer.buffer).collect();
-                        #[cfg(feature = "implementation")]
-                        let descriptor_set = get_persistent_descriptor_set(inner.device, &persistent_buffers)?;
-                        #[cfg(feature = "implementation")]
-                        self.descriptor_set = Some(descriptor_set);
+                        {
+                            let persistent_buffers: Vec<VkBuffer> = self.bindings
+                                .iter()
+                                .map(|(_, buffer)| buffer.buffer)
+                                .collect();
+                            let descriptor_set = get_persistent_descriptor_set(inner.device, &persistent_buffers)?;
+                            self.descriptor_set = Some(descriptor_set);
+                        }
                         #[cfg(not(feature = "implementation"))]
                         {
                             return Err(KronosError::CommandExecutionFailed(
