@@ -1,7 +1,7 @@
 //! Actual implementation of Kronos compute APIs
 
 use std::sync::Mutex;
-use log::warn;
+use log::error;
 
 pub mod error;
 pub mod instance;
@@ -44,8 +44,7 @@ pub fn initialize_kronos() -> Result<(), error::KronosError> {
         return Ok(());
     }
     
-    // Try to load ICD, but don't fail if unavailable
-    // Functions will return ErrorInitializationFailed when called without ICD
+    // Try to load ICD. Fail fast because a missing ICD means no real GPU runtime.
     match icd_loader::initialize_icd_loader() {
         Ok(()) => {
             *initialized = true;
@@ -53,11 +52,8 @@ pub fn initialize_kronos() -> Result<(), error::KronosError> {
             Ok(())
         }
         Err(e) => {
-            // Log the error but don't fail initialization
-            warn!("Failed to initialize Vulkan ICD loader: {}", e);
-            *initialized = true; // Mark as initialized even without ICD
-            Ok(())
+            error!("Failed to initialize Vulkan ICD loader: {}", e);
+            Err(error::KronosError::from(e))
         }
     }
 }
-
