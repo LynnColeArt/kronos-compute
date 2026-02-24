@@ -115,7 +115,7 @@ KRONOS_AGGREGATE_ICD=1 cargo run --example test_safe_api_simple
 
 **Workaround**:
 ```bash
-# For guaranteed AMD selection
+# For explicit AMD selection
 export KRONOS_AGGREGATE_ICD=1  # Use aggregated mode
 # OR
 export VK_ICD_FILENAMES=/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so

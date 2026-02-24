@@ -93,4 +93,4 @@ To fully test the optimizations:
 4. Profile CPU usage to confirm overhead reduction
 5. Test on different GPU vendors (AMD, NVIDIA, Intel)
 
-The implementation is complete at a scaffolding level and ready for staged performance validation. 🚀
+The implementation is complete at a scaffolding level and awaiting staged performance validation. 🚀

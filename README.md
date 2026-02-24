@@ -17,7 +17,7 @@
 
 Kronos production posture:
 
-- [implemented] Single production compute backend strategy is Kronos.
+- [implemented] Kronos is the active intended compute backend strategy (with active recovery validation).
 - [experimental] Runtime path depends on Vulkan ICD discovery and runtime availability.
 - [planned] Full multi-platform parity and complete documentation of all vendor edge-cases.
 
@@ -414,15 +414,15 @@ All unsafe functions include comprehensive safety documentation.
 - [implemented] ICD loader with Vulkan forwarding.
 - [implemented] Validation harnesses and safety checks are present.
 - [measured] Basic examples working.
-- [implemented] Published to crates.io (v0.1.0).
+- [implemented] Crates.io publication recorded (v0.1.0; confirm current package state before relying on it).
 - [implemented] C header generation.
 - [implemented] SPIR-V shader build scripts.
 - [implemented] Safe unified API available.
 - [measured] Compute correctness validated for baseline sample case.
 - [planned] Safety documentation completeness by tag coverage is under implementation.
 - [implemented] CI/CD pipeline with CI validation.
-- [measured] Test suite expanded (46 tests passing).
-- [experimental] Production testing and final readiness sign-off.
+- [measured] Test suite baseline count is historical and should be revalidated in the current checkout.
+- [experimental] Production testing and final readiness sign-off are deferred until cross-vendor evidence is current.
 
 ## 🗺️ Roadmap
 
