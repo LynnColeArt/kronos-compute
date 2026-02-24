@@ -13,6 +13,7 @@ use crate::core::*;
 pub enum GpuVendor {
     AMD,
     NVIDIA, 
+    Apple,
     Intel,
     Other,
 }
@@ -22,6 +23,7 @@ impl GpuVendor {
         match id {
             0x1002 => GpuVendor::AMD,      // AMD
             0x10DE => GpuVendor::NVIDIA,   // NVIDIA
+            0x106B => GpuVendor::Apple,    // Apple (incl. Apple Silicon)
             0x8086 => GpuVendor::Intel,    // Intel
             _ => GpuVendor::Other,
         }
@@ -336,6 +338,7 @@ mod tests {
     fn test_vendor_detection() {
         assert_eq!(GpuVendor::from_vendor_id(0x1002), GpuVendor::AMD);
         assert_eq!(GpuVendor::from_vendor_id(0x10DE), GpuVendor::NVIDIA);
+        assert_eq!(GpuVendor::from_vendor_id(0x106B), GpuVendor::Apple);
         assert_eq!(GpuVendor::from_vendor_id(0x8086), GpuVendor::Intel);
         assert_eq!(GpuVendor::from_vendor_id(0x9999), GpuVendor::Other);
     }
