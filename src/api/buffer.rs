@@ -255,6 +255,22 @@ impl ComputeContext {
     /// - Concurrent access to the buffers during copy is undefined behavior
     unsafe fn copy_buffer(&self, src: &Buffer, dst: &Buffer, size: usize) -> Result<()> {
         self.with_inner(|inner| {
+            if inner.device == VkDevice::NULL {
+                return Err(KronosError::CommandExecutionFailed(
+                    "Compute context has no valid Vulkan device".into(),
+                ));
+            }
+            if inner.command_pool == VkCommandPool::NULL {
+                return Err(KronosError::CommandExecutionFailed(
+                    "Compute context has no valid command pool".into(),
+                ));
+            }
+            if inner.queue == VkQueue::NULL {
+                return Err(KronosError::CommandExecutionFailed(
+                    "Compute context has no valid compute queue".into(),
+                ));
+            }
+
             // Allocate command buffer
             let alloc_info = VkCommandBufferAllocateInfo {
                 sType: VkStructureType::CommandBufferAllocateInfo,
@@ -265,7 +281,15 @@ impl ComputeContext {
             };
             
             let mut command_buffer = VkCommandBuffer::NULL;
-            vkAllocateCommandBuffers(inner.device, &alloc_info, &mut command_buffer);
+            let result = vkAllocateCommandBuffers(inner.device, &alloc_info, &mut command_buffer);
+            if result != VkResult::Success {
+                return Err(KronosError::from(result));
+            }
+            if command_buffer == VkCommandBuffer::NULL {
+                return Err(KronosError::CommandExecutionFailed(
+                    "vkAllocateCommandBuffers returned NULL".into(),
+                ));
+            }
             
             // Begin recording
             let begin_info = VkCommandBufferBeginInfo {
@@ -275,7 +299,11 @@ impl ComputeContext {
                 pInheritanceInfo: ptr::null(),
             };
             
-            vkBeginCommandBuffer(command_buffer, &begin_info);
+            let result = vkBeginCommandBuffer(command_buffer, &begin_info);
+            if result != VkResult::Success {
+                vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &command_buffer);
+                return Err(KronosError::from(result));
+            }
             
             // Record copy command
             let region = VkBufferCopy {
@@ -287,7 +315,11 @@ impl ComputeContext {
             vkCmdCopyBuffer(command_buffer, src.buffer, dst.buffer, 1, &region);
             
             // End recording
-            vkEndCommandBuffer(command_buffer);
+            let result = vkEndCommandBuffer(command_buffer);
+            if result != VkResult::Success {
+                vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &command_buffer);
+                return Err(KronosError::from(result));
+            }
             
             // Submit
             let submit_info = VkSubmitInfo {
@@ -304,11 +336,19 @@ impl ComputeContext {
             
             let result = vkQueueSubmit(inner.queue, 1, &submit_info, VkFence::NULL);
             if result != VkResult::Success {
+                vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &command_buffer);
                 return Err(KronosError::from(result));
             }
             
             // Wait for completion
-            vkQueueWaitIdle(inner.queue);
+            let result = vkQueueWaitIdle(inner.queue);
+            if result != VkResult::Success {
+                vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &command_buffer);
+                return Err(KronosError::SynchronizationError(format!(
+                    "vkQueueWaitIdle failed: {:?}",
+                    result
+                )));
+            }
             
             // Free command buffer
             vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &command_buffer);
@@ -377,4 +417,3 @@ impl Drop for Buffer {
         }
     }
 }
-

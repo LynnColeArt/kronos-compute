@@ -80,17 +80,17 @@ impl CommandBuilder {
 
             let execute_result = self.context.with_inner(|inner| {
                 if inner.device == VkDevice::NULL {
-                    return Err(KronosError::InvalidState(
+                    return Err(KronosError::CommandExecutionFailed(
                         "Compute context has no valid Vulkan device".into(),
                     ));
                 }
                 if inner.command_pool == VkCommandPool::NULL {
-                    return Err(KronosError::InvalidState(
+                    return Err(KronosError::CommandExecutionFailed(
                         "Compute context has no valid command pool".into(),
                     ));
                 }
                 if inner.queue == VkQueue::NULL {
-                    return Err(KronosError::InvalidState(
+                    return Err(KronosError::CommandExecutionFailed(
                         "Compute context has no valid compute queue".into(),
                     ));
                 }
