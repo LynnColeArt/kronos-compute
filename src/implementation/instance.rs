@@ -119,13 +119,21 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
     }
     // Aggregated mode: sum counts across all inner instances for this meta instance
     if crate::implementation::icd_loader::aggregated_mode_enabled() {
-        if let Some(inners) = crate::implementation::icd_loader::meta_instance_for(instance.as_raw()) {
+    if let Some(inners) = crate::implementation::icd_loader::meta_instance_for(instance.as_raw()) {
             let mut total = 0u32;
             // First pass: count
             for (icd, inner) in &inners {
                 if let Some(f) = icd.enumerate_physical_devices {
                     let mut count = 0u32;
-                    let _ = f(*inner, &mut count, ptr::null_mut());
+                    let result = f(*inner, &mut count, ptr::null_mut());
+                    if result != VkResult::Success {
+                        log::error!(
+                            "[vkEnumeratePhysicalDevices] Failed to query physical device count from ICD {:?}: {:?}",
+                            icd.library_path,
+                            result
+                        );
+                        return result;
+                    }
                     total = total.saturating_add(count);
                 }
             }
@@ -136,25 +144,41 @@ pub unsafe extern "C" fn vkEnumeratePhysicalDevices(
             // Second pass: fill up to provided capacity
             let cap = unsafe { *pPhysicalDeviceCount as usize };
             let mut filled = 0usize;
+            let mut saw_incomplete = false;
             for (icd, inner) in &inners {
                 if let Some(f) = icd.enumerate_physical_devices {
                     if filled >= cap { break; }
                     let mut count = (cap - filled) as u32;
                     let buf_ptr = unsafe { pPhysicalDevices.add(filled) };
                     let res = f(*inner, &mut count, buf_ptr);
-                    if res == VkResult::Success || res == VkResult::Incomplete {
-                        // Register ownership
-                        for i in 0..count as isize {
-                            let pd = unsafe { *buf_ptr.offset(i) };
-                            crate::implementation::icd_loader::register_physical_device_icd(pd, icd);
+                    match res {
+                        VkResult::Success | VkResult::Incomplete => {
+                            if res == VkResult::Incomplete {
+                                saw_incomplete = true;
+                            }
+                            // Register ownership
+                            for i in 0..count as isize {
+                                let pd = unsafe { *buf_ptr.offset(i) };
+                                crate::implementation::icd_loader::register_physical_device_icd(pd, icd);
+                            }
+                            filled += count as usize;
                         }
-                        filled += count as usize;
+                        _ => {
+                            log::error!(
+                                "[vkEnumeratePhysicalDevices] Failed to enumerate physical devices from ICD {:?}: {:?}",
+                                icd.library_path,
+                                res
+                            );
+                            return res;
+                        }
                     }
                 }
             }
             // Set actual filled count
             unsafe { *pPhysicalDeviceCount = filled as u32; }
-            if filled < total as usize { return VkResult::Incomplete; }
+            if filled < total as usize || saw_incomplete {
+                return VkResult::Incomplete;
+            }
             return VkResult::Success;
         }
     }
