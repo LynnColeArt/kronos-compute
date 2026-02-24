@@ -123,11 +123,8 @@ impl ComputeContext {
             log::info!("[SAFE API] Device created: {:?}, queue: {:?}", device, queue);
             
             // Create descriptor pool for persistent descriptors
-            // TODO: Fix descriptor pool creation - temporarily skip
-            log::info!("[SAFE API] Skipping descriptor pool creation temporarily");
-            let descriptor_pool = VkDescriptorPool::NULL;
-            // let descriptor_pool = Self::create_descriptor_pool(device)?;
-            // log::info!("[SAFE API] Descriptor pool created: {:?}", descriptor_pool);
+            let descriptor_pool = Self::create_descriptor_pool(device)?;
+            log::info!("[SAFE API] Descriptor pool created: {:?}", descriptor_pool);
             
             // Create command pool
             log::info!("[SAFE API] Creating command pool");
@@ -494,10 +491,9 @@ impl Drop for ComputeContext {
             if inner.command_pool != VkCommandPool::NULL {
                 vkDestroyCommandPool(inner.device, inner.command_pool, ptr::null());
             }
-            // TODO: Re-enable when descriptor pool creation is fixed
-            // if inner.descriptor_pool != VkDescriptorPool::NULL {
-            //     vkDestroyDescriptorPool(inner.device, inner.descriptor_pool, ptr::null());
-            // }
+            if inner.descriptor_pool != VkDescriptorPool::NULL {
+                vkDestroyDescriptorPool(inner.device, inner.descriptor_pool, ptr::null());
+            }
             if inner.device != VkDevice::NULL {
                 vkDestroyDevice(inner.device, ptr::null());
             }
