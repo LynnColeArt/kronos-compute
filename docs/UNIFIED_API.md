@@ -1,3 +1,7 @@
+> [!CAUTION] Documentation credibility note
+> Quantified performance and benchmark claims in this repository history are in recovery and should not be treated as current production facts until revalidated under the Kronos-first flow.
+
+
 # Kronos Unified Safe API
 
 **Status**: Initial implementation complete  
@@ -249,10 +253,10 @@ To migrate from the raw FFI to the unified API:
 
 ## Performance
 
-The unified API adds minimal overhead:
+The unified API is implemented to keep overhead low:
 - Zero-cost abstractions where possible
 - Small allocation for command builder (reusable)
 - Reference counting for shared resources
 - All optimizations work identically to raw API
 
-Benchmarks show <1% overhead compared to raw FFI for typical workloads.
+Benchmark-derived overhead figures are not being published while benchmark evidence is deferred.

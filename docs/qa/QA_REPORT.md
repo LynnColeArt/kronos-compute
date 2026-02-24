@@ -1,3 +1,7 @@
+> [!CAUTION] Documentation credibility note
+> Quantified performance and benchmark claims in this repository history are in recovery and should not be treated as current production facts until revalidated under the Kronos-first flow.
+
+
 # Kronos QA Report - Sporkle Integration Readiness
 
 **Date**: 2025-08-24  

@@ -1,57 +1,70 @@
 # Kronos Compute 🚀
 
-> **📦 Release Candidate 3 (v0.2.3-rc3): Pure Rust Implementation - NO external Vulkan dependencies! 🎯**
+> **📦 Release Candidate 3 (v0.2.3-rc3): Rust-first compute API with hardened Vulkan integration.**
 
 [![Crates.io](https://img.shields.io/crates/v/kronos-compute.svg)](https://crates.io/crates/kronos-compute)
 [![Documentation](https://docs.rs/kronos-compute/badge.svg)](https://docs.rs/kronos-compute)
 [![Windows CI](https://github.com/LynnColeArt/kronos-compute/actions/workflows/windows.yml/badge.svg)](https://github.com/LynnColeArt/kronos-compute/actions/workflows/windows.yml)
 [![License](https://img.shields.io/crates/l/kronos-compute.svg)](https://github.com/LynnColeArt/kronos-compute)
 
-A pure Rust implementation of compute-only Vulkan, with ZERO dependencies on system Vulkan drivers.
+## Documentation Status
+
+[implemented] This README uses explicit tags:
+- `[measured]` — reproducible measurement with hardware/method metadata.
+- `[implemented]` — completed and integrated.
+- `[experimental]` — implemented but not production-proven.
+- `[planned]` — not yet implemented.
+
+Kronos production posture:
+
+- [implemented] Single production compute backend strategy is Kronos.
+- [experimental] Runtime path depends on Vulkan ICD discovery and runtime availability.
+- [planned] Full multi-platform parity and complete documentation of all vendor edge-cases.
+
+### Production capability snapshot
+
+- [implemented] Rust API for compute context/pipeline dispatch.
+- [experimental] Pure-Rust driver implementation narrative is not complete without validated external Vulkan interoperability assumptions.
+- [implemented] Backend selection and telemetry hooks are part of the runtime contract.
 
 ## Overview
 
-**NEW in v0.2.3-rc3**: Kronos Compute is now a complete pure Rust implementation of the Vulkan compute API. We've removed ALL dependencies on system Vulkan drivers (AMD, NVIDIA, Intel, etc.) and implemented everything in Rust. This means:
+[implemented] Kronos is a Rust-first implementation of compute-oriented Vulkan APIs, with reduced surface area (compute-only), while still integrating via Vulkan ICD loading and validated driver compatibility.
 
-- ✅ **No system Vulkan required** - Works on any system, even without Vulkan installed
-- ✅ **Pure Rust** - 100% safe Rust implementation (unsafe only for C FFI boundaries)
-- ✅ **Fully portable** - Same behavior across all platforms
-- ✅ **Foundation for innovation** - Complete control over GPU compute implementation
+[implemented] This means:
+- [implemented] No graphics path overhead.
+- [implemented] Build-time and runtime startup can fail fast with explicit diagnostics when Vulkan dependencies are not compatible.
+- [planned] "Works on any system" behavior remains aspirational until full validation is complete.
 
-Kronos Compute is a streamlined Vulkan implementation that removes all graphics functionality to achieve maximum GPU compute performance. The pure Rust implementation provides:
+Kronos Compute is a streamlined Vulkan implementation that removes graphics functionality to focus on compute-focused runtime paths. The pure Rust implementation provides:
 
-- **Zero descriptor updates** per dispatch
-- **≤0.5 barriers** per dispatch (83% reduction)
-- **30-50% reduction** in CPU submit time
-- **Zero memory allocations** in steady state
-- **13.9% reduction** in structure sizes
+- [experimental] Descriptor lifecycle design emphasizes reduced descriptor churn in validated scenarios.
+- [experimental] Barrier scheduling targets reduced transition overhead under stable workloads.
+- [experimental] CPU-side execution and allocator behavior are hardware/ICD dependent.
+- [planned] Zero-allocation steady state is the target profile, currently workload and backend dependent.
+- [implemented] Structure layout compactness via core type definitions.
 
 ## 🎯 Key Features
 
 ### 1. **Safe Unified API** 🆕
 
-- Zero unsafe code required
-- Automatic resource management (RAII)
-- Builder patterns and fluent interfaces
-- Type-safe abstractions
-- All optimizations work transparently
+- [implemented] Primary safe API entrypoint for context/pipeline creation and dispatch.
+- [implemented] RAII and builder-style ownership.
+- [implemented] Type-safe handle abstraction.
 
 ### 2. **Advanced Optimizations**
 
 #### Persistent Descriptors
-- Set0 reserved for storage buffers with zero updates in hot path
-- Parameters passed via push constants (≤128 bytes)
-- Eliminates descriptor set allocation and update overhead
+- [experimental] Set0 and push constant model are being finalized.
+- [experimental] Descriptor-update reduction depends on workload and pipeline shape.
 
 #### Intelligent Barrier Policy
-- Smart tracking reduces barriers from 3 per dispatch to ≤0.5
-- Only three transition types: upload→read, read→write, write→read
-- Vendor-specific optimizations for AMD, NVIDIA, and Intel GPUs
+- [implemented] Barrier policy model and transition tracking are part of API behavior.
+- [experimental] Measured barriers-vs-dispatch results are platform-sensitive.
 
 #### Timeline Semaphore Batching
-- One timeline semaphore per queue
-- Batch multiple submissions with a single fence
-- 30-50% reduction in CPU overhead
+- [experimental] Timeline semaphore batching is implemented in the design.
+- [experimental] CPU overhead gains vary by backend and ICD behavior.
 
 #### Advanced Memory Allocator
 - Three-pool system: DEVICE_LOCAL, HOST_VISIBLE|COHERENT, HOST_VISIBLE|CACHED
@@ -65,11 +78,10 @@ Kronos Compute is a streamlined Vulkan implementation that removes all graphics 
 - Memory safety guarantees
 
 ### 4. **Pure Rust Implementation** (NEW in v0.2.3)
-- Complete Vulkan compute API implementation in Rust
-- No dependency on system Vulkan drivers or ICDs
-- Virtual compute device with full API compatibility
-- Foundation for future GPU compute innovations
-- Stub implementation ready for actual compute backend
+- [implemented] Compute API surface and safe Rust orchestration are implemented.
+- [experimental] Runtime execution is still coupled to Vulkan ICD/runtime compatibility.
+- [implemented] API compatibility layer for existing-style Vulkan calls is maintained.
+- [experimental] Backend behaviors are actively being validated in cross-vendor contexts.
 
 ### 5. **Optimized Structures**
 - `VkPhysicalDeviceFeatures`: 32 bytes (vs 220 in standard Vulkan)
@@ -86,7 +98,7 @@ kronos/
 │   ├── core/               # Core Kronos types
 │   ├── ffi/                # C-compatible function signatures
 │   └── implementation/     # Kronos optimizations
-├── benches/                # Performance benchmarks
+├── benches/                # Validation artifacts
 ├── examples/               # Usage examples
 ├── tests/                  # Integration and unit tests
 ├── shaders/                # SPIR-V compute shaders
@@ -97,7 +109,7 @@ kronos/
     │   ├── VULKAN_COMPARISON.md
     │   ├── ICD_SUCCESS.md
     │   └── COMPATIBILITY.md
-    ├── benchmarks/         # Performance results
+    ├── benchmarks/         # Historical validation artifacts
     │   └── BENCHMARK_RESULTS.md
     ├── qa/                 # Quality assurance
     │   ├── QA_REPORT.md
@@ -142,36 +154,14 @@ cargo build --release --features implementation
 
 # Run tests
 cargo test --features implementation
-
-# Run benchmarks
-cargo bench --features implementation
-
-# Run validation scripts
-./scripts/validate_bench.sh      # Run all validation tests
-./scripts/amd_bench.sh          # AMD-specific validation
 ```
 
-## 📊 Benchmarks
+## 📊 Validation notes (benchmarks deferred)
 
-Kronos includes comprehensive benchmarks for common compute workloads:
+Benchmark execution is currently deferred while backend proofing stabilizes.
 
-- **SAXPY**: Vector multiply-add operations (c = a*x + b)
-- **Reduction**: Parallel array summation
-- **Prefix Sum**: Parallel scan algorithm
-- **GEMM**: Dense matrix multiplication (C = A * B)
-
-Each benchmark tests multiple configurations:
-- Sizes: 64KB (small), 8MB (medium), 64MB (large)
-- Batch sizes: 1, 16, 256 dispatches
-- Metrics: descriptor updates, barriers, CPU time, memory allocations
-
-```bash
-# Run specific benchmark
-cargo bench --bench compute_workloads --features implementation
-
-# Run with custom parameters
-cargo bench --bench compute_workloads -- --warm-up-time 5 --measurement-time 10
-```
+- [implemented] Runtime startup, dispatch, and synchronization behavior are validated by existing test coverage.
+- [experimental] Perf-focused claims are intentionally withheld pending reproducible benchmark refresh.
 
 ## 🚀 Usage Example
 
@@ -218,19 +208,13 @@ unsafe {
 }
 ```
 
-## 📈 Performance
+## 📈 Performance and Validation
 
-Based on Mini's optimization targets:
+Benchmark-driven performance claims are intentionally deferred while backend proofing and release diagnostics are stabilized.
 
-| Metric | Baseline Vulkan | Kronos | Improvement |
-|--------|----------------|---------|-------------|
-| Descriptor updates/dispatch | 3-5 | 0 | 100% ⬇️ |
-| Barriers/dispatch | 3 | ≤0.5 | 83% ⬇️ |
-| CPU submit time | 100% | 50-70% | 30-50% ⬇️ |
-| Memory allocations | Continuous | 0* | 100% ⬇️ |
-| Structure size (avg) | 100% | 86.1% | 13.9% ⬇️ |
-
-*After initial warm-up
+- [implemented] Runtime startup, dispatch, synchronization, and failure-path behavior are validated by current test and example coverage.
+- [experimental] Throughput/latency/submit-cost comparisons are currently withheld.
+- [planned] Quantitative benchmark claims will be reintroduced once Kronos-only production behavior is stable and benchmark evidence is rerun and tagged.
 
 ## 🔧 Configuration
 
@@ -335,11 +319,11 @@ kronos::implementation::pool_allocator::set_slab_size(512 * 1024 * 1024)?;
 Traditional Vulkan requires updating descriptor sets for each dispatch. Kronos pre-allocates all storage buffer descriptors in Set0 and uses push constants for parameters:
 
 ```rust
-// Traditional: 3-5 descriptor updates per dispatch
+// Traditional path may issue multiple descriptor updates per dispatch
 vkUpdateDescriptorSets(device, 5, writes, 0, nullptr);
 vkCmdBindDescriptorSets(cmd, COMPUTE, layout, 0, 1, &set, 0, nullptr);
 
-// Kronos: 0 descriptor updates
+// Kronos route focuses on descriptor-set stability with push constants
 vkCmdPushConstants(cmd, layout, COMPUTE, 0, 128, &params);
 vkCmdDispatch(cmd, x, y, z);
 ```
@@ -348,12 +332,12 @@ vkCmdDispatch(cmd, x, y, z);
 Kronos tracks buffer usage patterns and inserts only the minimum required barriers:
 
 ```rust
-// Traditional: 3 barriers per dispatch
+// Traditional path may require multiple barrier transitions
 vkCmdPipelineBarrier(cmd, TRANSFER, COMPUTE, ...);  // upload→compute
 vkCmdPipelineBarrier(cmd, COMPUTE, COMPUTE, ...);   // compute→compute  
 vkCmdPipelineBarrier(cmd, COMPUTE, TRANSFER, ...);  // compute→download
 
-// Kronos: ≤0.5 barriers per dispatch (automatic)
+// Kronos applies minimized barrier scheduling where safe
 ```
 
 ### Timeline Batching
@@ -389,14 +373,12 @@ Comprehensive documentation is available in the `docs/` directory:
   - [QA Report](docs/qa/QA_REPORT.md) - Comprehensive validation for Sporkle integration
   - [Test Results](docs/qa/TEST_RESULTS.md) - Unit and integration test details
   
-- **Benchmarks**: Performance measurements and analysis
-  - [Benchmark Results](docs/benchmarks/BENCHMARK_RESULTS.md) - Detailed performance metrics
 
 ## 🤝 Contributing
 
 Contributions are welcome! Areas of interest:
 
-1. SPIR-V shader integration for benchmarks
+1. SPIR-V shader integration for validation cases
 2. Additional vendor-specific optimizations
 3. Performance profiling on different GPUs
 4. Safe wrapper API design
@@ -414,7 +396,7 @@ let result = unsafe {
     vkCreateBuffer(device, &info, ptr::null(), &mut buffer) 
 };
 
-// Safe Rust wrapper (future work)
+// Safe Rust wrapper
 let buffer = device.create_buffer(&info)?;
 ```
 
@@ -424,24 +406,23 @@ All unsafe functions include comprehensive safety documentation.
 
 - `implementation` - Enable Kronos optimizations and ICD forwarding
 - `validation` - Enable additional safety checks (default)
-- `compare-ash` - Enable comparison benchmarks with ash
-
+- 
 ## 📝 Status
 
-- ✅ Core implementation complete
-- ✅ All optimizations integrated  
-- ✅ ICD loader with Vulkan forwarding
-- ✅ Comprehensive benchmark suite
-- ✅ Basic examples working
-- ✅ Published to crates.io (v0.1.0)
-- ✅ C header generation
-- ✅ SPIR-V shader build scripts
-- ✅ Safe unified API (NEW!)
-- ✅ Compute correctness fixed (1024/1024 correct results)
-- ✅ Safety documentation complete (100% coverage)
-- ✅ CI/CD pipeline with multi-platform testing
-- ✅ Test suite expanded (46 tests passing)
-- ⏳ Production testing
+- [implemented] Core implementation scaffold complete.
+- [experimental] Optimization integration is present but still requires cross-vendor proof under Kronos-first semantics.
+- [implemented] ICD loader with Vulkan forwarding.
+- [implemented] Validation harnesses and safety checks are present.
+- [measured] Basic examples working.
+- [implemented] Published to crates.io (v0.1.0).
+- [implemented] C header generation.
+- [implemented] SPIR-V shader build scripts.
+- [implemented] Safe unified API available.
+- [measured] Compute correctness validated for baseline sample case.
+- [planned] Safety documentation completeness by tag coverage is under implementation.
+- [implemented] CI/CD pipeline with CI validation.
+- [measured] Test suite expanded (46 tests passing).
+- [experimental] Production testing and final readiness sign-off.
 
 ## 🗺️ Roadmap
 
