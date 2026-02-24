@@ -74,7 +74,50 @@ impl CommandBuilder {
     /// Execute the dispatch
     pub fn execute(mut self) -> Result<()> {
         unsafe {
-            self.context.with_inner(|inner| {
+            let mut allocated_command_buffer = VkCommandBuffer::NULL;
+            let mut allocated_descriptor_set = VkDescriptorSet::NULL;
+            let has_bindings = !self.bindings.is_empty();
+
+            let execute_result = self.context.with_inner(|inner| {
+                if inner.device == VkDevice::NULL {
+                    return Err(KronosError::InvalidState(
+                        "Compute context has no valid Vulkan device".into(),
+                    ));
+                }
+                if inner.command_pool == VkCommandPool::NULL {
+                    return Err(KronosError::InvalidState(
+                        "Compute context has no valid command pool".into(),
+                    ));
+                }
+                if inner.queue == VkQueue::NULL {
+                    return Err(KronosError::InvalidState(
+                        "Compute context has no valid compute queue".into(),
+                    ));
+                }
+                if self.pipeline.pipeline == VkPipeline::NULL {
+                    return Err(KronosError::CommandExecutionFailed(
+                        "CommandBuilder has no valid compute pipeline".into(),
+                    ));
+                }
+                if self.pipeline.layout == VkPipelineLayout::NULL {
+                    return Err(KronosError::CommandExecutionFailed(
+                        "CommandBuilder has no valid pipeline layout".into(),
+                    ));
+                }
+                if has_bindings && self.pipeline.descriptor_set_layout == VkDescriptorSetLayout::NULL {
+                    return Err(KronosError::CommandExecutionFailed(
+                        "Buffer bindings require a valid descriptor set layout".into(),
+                    ));
+                }
+                for (binding_index, (_, buffer)) in self.bindings.iter().enumerate() {
+                    if buffer.buffer == VkBuffer::NULL {
+                        return Err(KronosError::CommandExecutionFailed(format!(
+                            "Binding {} has a NULL Vulkan buffer",
+                            binding_index
+                        )));
+                    }
+                }
+
                 // Allocate command buffer
                 let alloc_info = VkCommandBufferAllocateInfo {
                     sType: VkStructureType::CommandBufferAllocateInfo,
@@ -84,7 +127,18 @@ impl CommandBuilder {
                     commandBufferCount: 1,
                 };
                 
-                vkAllocateCommandBuffers(inner.device, &alloc_info, &mut self.command_buffer);
+                let mut command_buffer = VkCommandBuffer::NULL;
+                let result = vkAllocateCommandBuffers(inner.device, &alloc_info, &mut command_buffer);
+                if result != VkResult::Success {
+                    return Err(KronosError::from(result));
+                }
+                if command_buffer == VkCommandBuffer::NULL {
+                    return Err(KronosError::CommandExecutionFailed(
+                        "vkAllocateCommandBuffers returned NULL".into(),
+                    ));
+                }
+                self.command_buffer = command_buffer;
+                allocated_command_buffer = command_buffer;
                 
                 // Begin command buffer
                 let begin_info = VkCommandBufferBeginInfo {
@@ -94,13 +148,13 @@ impl CommandBuilder {
                     pInheritanceInfo: ptr::null(),
                 };
                 
-                let result = vkBeginCommandBuffer(self.command_buffer, &begin_info);
+                let result = vkBeginCommandBuffer(command_buffer, &begin_info);
                 if result != VkResult::Success {
                     return Err(KronosError::from(result));
                 }
                 
                 // Create and update descriptor set if we have bindings
-                if !self.bindings.is_empty() {
+                if has_bindings {
                     // Allocate descriptor set
                     let alloc_info = VkDescriptorSetAllocateInfo {
                         sType: VkStructureType::DescriptorSetAllocateInfo,
@@ -115,8 +169,11 @@ impl CommandBuilder {
                     if result != VkResult::Success {
                         return Err(KronosError::from(result));
                     }
-                    
-                    self.descriptor_set = Some(descriptor_set);
+                    if descriptor_set == VkDescriptorSet::NULL {
+                        return Err(KronosError::CommandExecutionFailed(
+                            "vkAllocateDescriptorSets returned NULL".into(),
+                        ));
+                    }
                     
                     // Update descriptor set
                     let buffer_infos: Vec<VkDescriptorBufferInfo> = self.bindings.iter().map(|(_, buffer)| {
@@ -141,12 +198,18 @@ impl CommandBuilder {
                             pTexelBufferView: ptr::null(),
                         }
                     }).collect();
-                    
+                    if writes.len() != buffer_infos.len() {
+                        return Err(KronosError::CommandExecutionFailed(
+                            "Descriptor write/buffer mismatch".into(),
+                        ));
+                    }
                     vkUpdateDescriptorSets(inner.device, writes.len() as u32, writes.as_ptr(), 0, ptr::null());
+
+                    allocated_descriptor_set = descriptor_set;
+                    self.descriptor_set = Some(descriptor_set);
                 }
                 
                 // Insert barriers for buffers (smart barrier optimization)
-                // In a real implementation, this would use the barrier_policy module
                 let barriers: Vec<VkBufferMemoryBarrier> = self.bindings.iter().map(|(_, buffer)| {
                     VkBufferMemoryBarrier {
                         sType: VkStructureType::BufferMemoryBarrier,
@@ -163,7 +226,7 @@ impl CommandBuilder {
                 
                 if !barriers.is_empty() {
                     vkCmdPipelineBarrier(
-                        self.command_buffer,
+                        command_buffer,
                         VkPipelineStageFlags::TOP_OF_PIPE,
                         VkPipelineStageFlags::COMPUTE_SHADER,
                         VkDependencyFlags::empty(),
@@ -177,12 +240,12 @@ impl CommandBuilder {
                 }
                 
                 // Bind pipeline
-                vkCmdBindPipeline(self.command_buffer, VkPipelineBindPoint::Compute, self.pipeline.pipeline);
+                vkCmdBindPipeline(command_buffer, VkPipelineBindPoint::Compute, self.pipeline.pipeline);
                 
                 // Bind descriptor set
                 if let Some(descriptor_set) = self.descriptor_set {
                     vkCmdBindDescriptorSets(
-                        self.command_buffer,
+                        command_buffer,
                         VkPipelineBindPoint::Compute,
                         self.pipeline.layout,
                         0,
@@ -196,7 +259,7 @@ impl CommandBuilder {
                 // Push constants
                 if !self.push_constants.is_empty() {
                     vkCmdPushConstants(
-                        self.command_buffer,
+                        command_buffer,
                         self.pipeline.layout,
                         VkShaderStageFlags::COMPUTE,
                         0,
@@ -206,10 +269,10 @@ impl CommandBuilder {
                 }
                 
                 // Dispatch
-                vkCmdDispatch(self.command_buffer, self.workgroups.0, self.workgroups.1, self.workgroups.2);
+                vkCmdDispatch(command_buffer, self.workgroups.0, self.workgroups.1, self.workgroups.2);
                 
                 // End command buffer
-                let result = vkEndCommandBuffer(self.command_buffer);
+                let result = vkEndCommandBuffer(command_buffer);
                 if result != VkResult::Success {
                     return Err(KronosError::from(result));
                 }
@@ -222,7 +285,7 @@ impl CommandBuilder {
                     pWaitSemaphores: ptr::null(),
                     pWaitDstStageMask: ptr::null(),
                     commandBufferCount: 1,
-                    pCommandBuffers: &self.command_buffer,
+                    pCommandBuffers: &command_buffer,
                     signalSemaphoreCount: 0,
                     pSignalSemaphores: ptr::null(),
                 };
@@ -234,19 +297,29 @@ impl CommandBuilder {
                     ));
                 }
                 
-                // Wait for completion (in a real implementation, this could be async)
-                vkQueueWaitIdle(inner.queue);
-                
-                // Free command buffer
-                vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &self.command_buffer);
-                
-                // Free descriptor set if allocated
-                if let Some(descriptor_set) = self.descriptor_set {
-                    vkFreeDescriptorSets(inner.device, inner.descriptor_pool, 1, &descriptor_set);
+                // Wait for completion
+                let result = vkQueueWaitIdle(inner.queue);
+                if result != VkResult::Success {
+                    return Err(KronosError::SynchronizationError(format!(
+                        "vkQueueWaitIdle failed: {:?}",
+                        result
+                    )));
                 }
                 
                 Ok(())
-            })
+            });
+
+            self.context.with_inner(|inner| {
+                if allocated_command_buffer != VkCommandBuffer::NULL {
+                    vkFreeCommandBuffers(inner.device, inner.command_pool, 1, &allocated_command_buffer);
+                }
+                if allocated_descriptor_set != VkDescriptorSet::NULL {
+                    vkFreeDescriptorSets(inner.device, inner.descriptor_pool, 1, &allocated_descriptor_set);
+                }
+            });
+            self.command_buffer = VkCommandBuffer::NULL;
+            self.descriptor_set = None;
+            execute_result
         }
     }
 }

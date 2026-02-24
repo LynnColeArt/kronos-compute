@@ -48,6 +48,9 @@ pub enum KronosError {
     
     #[error("Synchronization error: {0}")]
     SynchronizationError(String),
+
+    #[error("Unsupported hardware: {0}")]
+    UnsupportedHardware(String),
     
     #[error("Vulkan error: {0:?}")]
     VulkanError(VkResult),
@@ -69,7 +72,7 @@ pub struct ContextConfig {
     pub app_name: String,
     /// Enable validation layers
     pub enable_validation: bool,
-    /// Preferred GPU vendor (AMD, NVIDIA, Intel)
+    /// Preferred GPU vendor (AMD, NVIDIA, Apple)
     pub preferred_vendor: Option<String>,
     /// Preferred ICD by path (only works in aggregated mode or before first initialization)
     pub preferred_icd_path: Option<std::path::PathBuf>,

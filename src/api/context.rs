@@ -18,6 +18,12 @@ use std::ffi::CString;
 use std::ptr;
 use std::sync::{Arc, Mutex};
 
+const SUPPORTED_VULKAN_VENDORS: &[(u32, &str)] = &[
+    (0x10DE, "NVIDIA"),
+    (0x1002, "AMD"),
+    (0x106B, "Apple"),
+];
+
 /// Internal state for ComputeContext
 pub(super) struct ContextInner {
     pub(super) instance: VkInstance,
@@ -73,6 +79,13 @@ impl ComputeContext {
                     KronosError::InitializationFailed(e.to_string())
                 })?;
             log::info!("[SAFE API] Kronos initialized successfully");
+
+            let preferred_vendor_id = match config.preferred_vendor.as_deref() {
+                Some(vendor) if !vendor.trim().is_empty() => {
+                    Some(Self::parse_vendor_id(vendor)?)
+                }
+                _ => None,
+            };
             
             // Create instance
             log::info!("[SAFE API] Creating Vulkan instance");
@@ -81,7 +94,7 @@ impl ComputeContext {
             
             // Find compute-capable device
             log::info!("[SAFE API] Finding compute-capable device");
-            let (physical_device, queue_family_index) = Self::find_compute_device(instance)?;
+            let (physical_device, queue_family_index) = Self::find_compute_device(instance, preferred_vendor_id)?;
             log::info!("[SAFE API] Found device: {:?}, queue family: {}", physical_device, queue_family_index);
             
             log::info!("[SAFE API] find_compute_device returned successfully");
@@ -99,23 +112,13 @@ impl ComputeContext {
             
             // Log selected device info
             // deviceName is a fixed-size array, ensure it's null-terminated
-            let device_name_bytes = &device_properties.deviceName;
-            let null_pos = device_name_bytes.iter().position(|&c| c == 0).unwrap_or(device_name_bytes.len());
-            // Convert from &[i8] to &[u8] for from_utf8
-            let device_name_u8: Vec<u8> = device_name_bytes[..null_pos]
-                .iter()
-                .map(|&c| c as u8)
-                .collect();
-            let device_name = std::str::from_utf8(&device_name_u8)
-                .unwrap_or("Unknown Device");
-            let device_type_str = match device_properties.deviceType {
-                VkPhysicalDeviceType::DiscreteGpu => "Discrete GPU",
-                VkPhysicalDeviceType::IntegratedGpu => "Integrated GPU",
-                VkPhysicalDeviceType::VirtualGpu => "Virtual GPU",
-                VkPhysicalDeviceType::Cpu => "CPU (Software Renderer)",
-                _ => "Unknown",
-            };
+            let device_name = Self::describe_device_name(&device_properties);
+            let device_type_str = Self::describe_device_type(device_properties.deviceType);
+            let vendor_name = Self::vendor_name(device_properties.vendorID).unwrap_or("Unknown Vendor");
             log::info!("Selected Vulkan device: {} ({})", device_name, device_type_str);
+            if Self::is_supported_vendor(device_properties.vendorID) {
+                log::info!("Selected vendor: {} (0x{:04x})", vendor_name, device_properties.vendorID);
+            }
             
             // Create logical device
             log::info!("[SAFE API] Creating logical device");
@@ -223,7 +226,7 @@ impl ComputeContext {
     /// - Calls vkEnumeratePhysicalDevices which may fail with invalid instance
     /// - The returned physical device is tied to the instance lifetime
     /// - Accessing the device after instance destruction is undefined behavior
-    unsafe fn find_compute_device(instance: VkInstance) -> Result<(VkPhysicalDevice, u32)> {
+    unsafe fn find_compute_device(instance: VkInstance, preferred_vendor: Option<u32>) -> Result<(VkPhysicalDevice, u32)> {
         let mut device_count = 0;
         log::info!("[SAFE API] Enumerating physical devices...");
         
@@ -248,7 +251,7 @@ impl ComputeContext {
         log::info!("[SAFE API] Successfully enumerated {} devices", device_count);
         
         // Collect all devices with compute support and their properties
-        let mut candidates = Vec::new();
+        let mut candidates = Vec::<(VkPhysicalDevice, u32, VkPhysicalDeviceType, u32, String)>::new();
         
         for (dev_idx, device) in devices.iter().enumerate() {
             log::info!("[SAFE API] Checking device {} for compute support", dev_idx);
@@ -258,16 +261,76 @@ impl ComputeContext {
                 let mut properties = VkPhysicalDeviceProperties::default();
                 vkGetPhysicalDeviceProperties(*device, &mut properties);
                 
-                candidates.push((*device, index, properties.deviceType));
+                let device_name = Self::describe_device_name(&properties);
+                candidates.push((*device, index, properties.deviceType, properties.vendorID, device_name));
             }
         }
         
         if candidates.is_empty() {
             return Err(KronosError::DeviceNotFound);
         }
+
+        let mut supported_candidates = candidates
+            .iter()
+            .filter(|(_, _, _, vendor_id, _)| Self::is_supported_vendor(*vendor_id))
+            .collect::<Vec<_>>();
+
+        if let Some(preferred_vendor_id) = preferred_vendor {
+            let preferred_devices = supported_candidates
+                .iter()
+                .filter(|(_, _, _, vendor_id, _)| **vendor_id == preferred_vendor_id)
+                .collect::<Vec<_>>();
+
+            if !preferred_devices.is_empty() {
+                supported_candidates = preferred_devices;
+            } else {
+                let preferred_name = Self::vendor_name(preferred_vendor_id).unwrap_or("Unknown Vendor");
+                let all_device_report = candidates
+                    .iter()
+                    .map(|(_, _, _, vendor_id, name)| {
+                        format!(
+                            "{}:{} [0x{:04x}]",
+                            name,
+                            Self::vendor_name(*vendor_id).unwrap_or("Unknown Vendor"),
+                            vendor_id
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(KronosError::UnsupportedHardware(format!(
+                    "Preferred vendor {} not available. Discovered Vulkan devices: {}",
+                    preferred_name, all_device_report
+                )));
+            }
+        }
+
+        if supported_candidates.is_empty() {
+            let discovered_devices = candidates
+                .iter()
+                .map(|(_, _, _, vendor_id, name)| {
+                    format!(
+                        "{}:{} [0x{:04x}]",
+                        name,
+                        Self::vendor_name(*vendor_id).unwrap_or("Unknown Vendor"),
+                        vendor_id
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let supported_vendors = SUPPORTED_VULKAN_VENDORS
+                .iter()
+                .map(|(_, name)| *name)
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(KronosError::UnsupportedHardware(format!(
+                "No supported vendors present. Supported vendors: {}. Discovered devices: {}",
+                supported_vendors,
+                discovered_devices
+            )));
+        }
         
-        // Sort by device type preference: DiscreteGpu > IntegratedGpu > VirtualGpu > Cpu
-        candidates.sort_by_key(|(_, _, device_type)| {
+        // Prefer supported discrete GPUs first, then integrated, then virtual, then fallback.
+        supported_candidates.sort_by_key(|(_, _, device_type, _, _)| {
             match *device_type {
                 VkPhysicalDeviceType::DiscreteGpu => 0,
                 VkPhysicalDeviceType::IntegratedGpu => 1,
@@ -278,9 +341,12 @@ impl ComputeContext {
             }
         });
         
-        // Return the best device
-        let (device, queue_index, device_type) = candidates[0];
-        log::info!("[SAFE API] Selected device with queue index {}, type {:?}", queue_index, device_type);
+        let &(device, queue_index, device_type, _, _) = supported_candidates.first().unwrap();
+        log::info!(
+            "[SAFE API] Selected device with queue index {}, type {:?} and supported vendor",
+            queue_index,
+            device_type
+        );
         Ok((device, queue_index))
     }
     
@@ -375,6 +441,12 @@ impl ComputeContext {
         
         let mut queue = VkQueue::NULL;
         vkGetDeviceQueue(device, queue_family_index, 0, &mut queue);
+        if queue == VkQueue::NULL {
+            log::error!("[SAFE API] vkGetDeviceQueue returned NULL queue");
+            return Err(KronosError::UnsupportedHardware(
+                "Compute queue was not created by Vulkan device".into(),
+            ));
+        }
         
         Ok((device, queue))
     }
@@ -415,6 +487,11 @@ impl ComputeContext {
             log::error!("[SAFE API] Failed to create descriptor pool: {:?}", result);
             return Err(KronosError::from(result));
         }
+        if pool == VkDescriptorPool::NULL {
+            return Err(KronosError::UnsupportedHardware(
+                "Descriptor pool creation returned NULL handle".into(),
+            ));
+        }
         
         Ok(pool)
     }
@@ -446,8 +523,60 @@ impl ComputeContext {
             log::error!("[SAFE API] Failed to create command pool: {:?}", result);
             return Err(KronosError::from(result));
         }
+        if pool == VkCommandPool::NULL {
+            return Err(KronosError::UnsupportedHardware(
+                "Command pool creation returned NULL handle".into(),
+            ));
+        }
         
         Ok(pool)
+    }
+
+    fn parse_vendor_id(vendor: &str) -> Result<u32> {
+        let vendor_normalized = vendor.trim().to_ascii_lowercase();
+        match vendor_normalized.as_str() {
+            "amd" | "advanced micro devices" | "0x1002" | "4098" => Ok(0x1002),
+            "nvidia" | "0x10de" | "4318" | "nvidia corp" => Ok(0x10DE),
+            "apple" | "apple silicon" | "0x106b" | "4203" => Ok(0x106B),
+            other => Err(KronosError::UnsupportedHardware(format!(
+                "Unsupported preferred vendor '{}'. Supported: AMD, NVIDIA, Apple",
+                other
+            ))),
+        }
+    }
+
+    fn is_supported_vendor(vendor_id: u32) -> bool {
+        SUPPORTED_VULKAN_VENDORS.iter().any(|(id, _)| *id == vendor_id)
+    }
+
+    fn vendor_name(vendor_id: u32) -> Option<&'static str> {
+        SUPPORTED_VULKAN_VENDORS
+            .iter()
+            .find_map(|(id, name)| (*id == vendor_id).then_some(*name))
+    }
+
+    fn describe_device_type(device_type: VkPhysicalDeviceType) -> &'static str {
+        match device_type {
+            VkPhysicalDeviceType::DiscreteGpu => "Discrete GPU",
+            VkPhysicalDeviceType::IntegratedGpu => "Integrated GPU",
+            VkPhysicalDeviceType::VirtualGpu => "Virtual GPU",
+            VkPhysicalDeviceType::Cpu => "CPU (Software Renderer)",
+            _ => "Unknown",
+        }
+    }
+
+    fn describe_device_name(properties: &VkPhysicalDeviceProperties) -> String {
+        let device_name_bytes = &properties.deviceName;
+        let null_pos = device_name_bytes
+            .iter()
+            .position(|&c| c == 0)
+            .unwrap_or(device_name_bytes.len());
+        let device_name_u8: Vec<u8> = device_name_bytes[..null_pos]
+            .iter()
+            .map(|&c| c as u8)
+            .collect();
+
+        String::from_utf8(device_name_u8).unwrap_or_else(|_| "Unknown Device".to_string())
     }
     
     /// Get the underlying Vulkan device (for advanced usage)
