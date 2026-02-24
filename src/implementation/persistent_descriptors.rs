@@ -31,7 +31,7 @@ pub struct PersistentDescriptorManager {
     pools: HashMap<u64, VkDescriptorPool>,
     
     /// Layout for Set0 (storage buffers only)
-    set0_layout: HashMap<u64, VkDescriptorSetLayout>,
+    set0_layout: HashMap<(u64, u32), VkDescriptorSetLayout>,
     
     /// Buffer -> Descriptor mapping
     descriptors: HashMap<u64, PersistentDescriptor>,
@@ -70,7 +70,7 @@ pub unsafe fn create_persistent_layout(
     let device_key = device.as_raw();
     
     // Return existing layout if already created
-    if let Some(&layout) = manager.set0_layout.get(&device_key) {
+    if let Some(&layout) = manager.set0_layout.get(&(device_key, max_bindings)) {
         return Ok(layout);
     }
     
@@ -101,7 +101,7 @@ pub unsafe fn create_persistent_layout(
             let result = create_fn(device, &create_info, std::ptr::null(), &mut layout);
             
             if result == VkResult::Success {
-                manager.set0_layout.insert(device_key, layout);
+                manager.set0_layout.insert((device_key, max_bindings), layout);
                 return Ok(layout);
             }
             return Err(IcdError::VulkanError(result));
@@ -366,11 +366,19 @@ pub unsafe fn cleanup_persistent_descriptors(device: VkDevice) -> Result<(), Icd
         }
     }
     
-    // Clean up layout
-    if let Some(layout) = manager.set0_layout.remove(&device_key) {
-        if let Some(icd) = super::icd_loader::get_icd() {
-            if let Some(destroy_fn) = icd.destroy_descriptor_set_layout {
-                destroy_fn(device, layout, std::ptr::null());
+    // Clean up all Set0 layouts for this device
+    let mut layout_keys = Vec::new();
+    for (&(cached_device_key, cached_binding_count), _) in manager.set0_layout.iter() {
+        if cached_device_key == device_key {
+            layout_keys.push((cached_device_key, cached_binding_count));
+        }
+    }
+    for key in layout_keys {
+        if let Some(layout) = manager.set0_layout.remove(&key) {
+            if let Some(icd) = super::icd_loader::get_icd() {
+                if let Some(destroy_fn) = icd.destroy_descriptor_set_layout {
+                    destroy_fn(device, layout, std::ptr::null());
+                }
             }
         }
     }
