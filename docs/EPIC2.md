@@ -7,13 +7,13 @@
 **Created**: 2025-08-25  
 **Updated**: 2025-08-25 - Unified API as top priority  
 **Based on**: [Peer Review 2025-08-25](PEER_REVIEW_2025-08-25.md)  
-**Goal**: Create a unified Rust API and achieve production-ready status
+**Goal**: Create a unified Rust API and track progress toward production readiness under Kronos-first execution constraints
 
 ## Overview
 
-This epic outlines the path from current alpha/beta state to production readiness. The top priority is creating a unified, safe Rust API that makes Kronos Compute accessible without requiring unsafe code or Vulkan expertise.
+This epic outlines the path from current alpha/beta state to a staged production posture. The top priority is creating a unified, safe Rust API that makes Kronos Compute accessible without requiring unsafe code or Vulkan expertise.
 
-## Milestone 0: Unified Safe API 🎯 ✅ COMPLETE!
+## Milestone 0: Unified Safe API 🎯 IMPLEMENTED (validation staged)
 
 **Priority**: CRITICAL - Essential for usability and adoption  
 **Timeline**: 2-3 weeks (Completed in 1 day!)  
@@ -40,7 +40,7 @@ This epic outlines the path from current alpha/beta state to production readines
 - [x] Smart barriers handled internally
 - [x] Timeline batching transparent to users
 - [x] Pool allocator automatic for Buffer creation
-- **Success Criteria**: All optimizations work through safe API ✅
+- **Success Criteria**: Optimization control points are represented in the API layer; runtime behavior remains staged for verification.
 
 ### 0.4 Examples & Migration ✅
 - [x] Create example using unified API
@@ -48,7 +48,7 @@ This epic outlines the path from current alpha/beta state to production readines
 - [x] Document API in UNIFIED_API.md
 - [ ] Benchmark unified vs raw API overhead (future)
 - [ ] Add ergonomic helpers (parallel_for, reductions) (future)
-- **Success Criteria**: Examples demonstrate API simplicity ✅
+- **Success Criteria**: Examples demonstrate API shape and intent; measured behavior is tracked in dedicated runtime checks.
 
 Example of target API:
 ```rust
@@ -74,7 +74,7 @@ ctx.dispatch(&pipeline)
 let result: Vec<f32> = c.read()?;
 ```
 
-## Milestone 1: Critical Fixes 🚨 (Production Blockers) ✅ COMPLETE!
+## Milestone 1: Critical Fixes 🚨 (Production Blockers) ✅ IMPLEMENTED (validation staged)
 
 **Priority**: CRITICAL - Must complete before any production use  
 **Timeline**: 1-2 weeks (Completed in 1 day!)  
@@ -85,7 +85,7 @@ let result: Vec<f32> = c.read()?;
 - [x] Verify SPIR-V shader loading and execution
 - [x] Add comprehensive correctness tests
 - [x] Ensure all array elements compute correctly
-- **Success Criteria**: All examples produce 100% correct results ✅
+- **Success Criteria**: Example workflows include deterministic checks; full execution-path verification remains staged.
 - **Completed**: 2025-08-25 - Fixed saxpy.spv loading and buffer descriptors
 
 ### 1.2 Complete Safety Documentation ✅
@@ -96,7 +96,7 @@ let result: Vec<f32> = c.read()?;
   - [x] `descriptor.rs` - descriptor lifetime management
   - [x] `pipeline.rs` - pipeline state management
 - [x] Add safety examples and anti-patterns
-- **Success Criteria**: 100% unsafe function documentation ✅
+- **Success Criteria**: Unsafe-function coverage is tracked for touched modules and treated as scoped implementation evidence.
 - **Completed**: 2025-08-25 - All 29 unsafe functions now have safety docs
 
 ### 1.3 Fix Compilation Errors ✅
@@ -106,7 +106,7 @@ let result: Vec<f32> = c.read()?;
   - [x] `test_optimizations.rs` (13 errors)
 - [x] Fix type mismatches in integration tests
 - [x] Ensure all examples compile and run
-- **Success Criteria**: Zero compilation errors, all examples executable ✅
+- **Success Criteria**: Baseline compilation targets are passing; full execution-path coverage is staged.
 - **Completed**: 2025-08-25 - Fixed imports, all binaries compile and run
 
 ## Milestone 2: Test Infrastructure 🧪 (High Priority) ✅ COMPLETE!
@@ -124,7 +124,7 @@ let result: Vec<f32> = c.read()?;
   - [x] Safety documentation coverage
 - [x] Add build matrix for Rust versions (1.70+)
 - [x] Enable clippy and rustfmt checks
-- **Success Criteria**: All PRs automatically validated ✅
+- **Success Criteria**: Required CI jobs execute for key code paths; breadth remains bounded to active roadmap scope.
 - **Completed**: 2025-08-25 - Full CI/CD pipeline with multi-platform support
 
 ### 2.2 Expand Test Coverage ✅
@@ -133,7 +133,7 @@ let result: Vec<f32> = c.read()?;
 - [x] Multi-vendor compatibility tests
 - [x] Memory leak detection tests
 - [x] Thread safety validation
-- **Success Criteria**: >80% code coverage, all optimizations tested ✅
+- **Success Criteria**: Test coverage targets and optimization checks are staged and tracked in CI scope.
 - **Completed**: 2025-08-25 - Increased from 31 to 46 tests, all passing
 
 ### 2.3 Benchmark Validation
@@ -141,7 +141,7 @@ let result: Vec<f32> = c.read()?;
 - [ ] Establish performance baselines
 - [ ] Add automated performance tracking
 - [ ] Compare against standard Vulkan
-- **Success Criteria**: Benchmarks demonstrate claimed improvements
+- **Success Criteria**: Benchmarks show directional improvement against active baselines after runtime stabilization
 - **Note**: Deferred to future work - benchmarks need SPIR-V shaders
 
 ## Milestone 3: Documentation & Build 📚 (Medium Priority)
@@ -155,7 +155,7 @@ let result: Vec<f32> = c.read()?;
 - [ ] Document known issues and workarounds
 - [ ] Add troubleshooting guide
 - [ ] Verify crates.io publishing status
-- **Success Criteria**: Zero documentation inaccuracies
+- **Success Criteria**: Active docs are scoped to evidence-backed claims only
 
 ### 3.2 Build Process Improvements
 - [ ] Commit `Cargo.lock` for reproducible builds
@@ -163,14 +163,14 @@ let result: Vec<f32> = c.read()?;
 - [ ] Document build prerequisites
 - [ ] Create development environment setup guide
 - [ ] Add dependency version constraints
-- **Success Criteria**: One-command build from fresh clone
+- **Success Criteria**: Reproducible build path with documented prerequisites
 
 ### 3.3 API Documentation
 - [ ] Generate and review rustdoc output
 - [ ] Add usage examples to all public APIs
 - [ ] Document performance characteristics
 - [ ] Create migration guide from standard Vulkan
-- **Success Criteria**: 100% public API documentation
+- **Success Criteria**: Public API documentation coverage for active exports and error behavior
 
 ## Milestone 4: Code Quality 🛠️ (Medium Priority)
 
@@ -182,14 +182,14 @@ let result: Vec<f32> = c.read()?;
 - [ ] Implement workaround or suppress if benign
 - [ ] Document FFI safety guarantees
 - [ ] Add FFI testing suite
-- **Success Criteria**: Clean compilation without warnings
+- **Success Criteria**: Warnings are reduced to scope-justified and tracked exceptions
 
 ### 4.2 Error Handling Enhancement
 - [ ] Review all error paths
 - [ ] Ensure consistent error types
 - [ ] Add context to error messages
 - [ ] Document error recovery strategies
-- **Success Criteria**: No panics in production code paths
+- **Success Criteria**: Hard-fail behavior in production-relevant paths, with explicit panics only where justified by invariants
 
 ### 4.3 Code Organization
 - [ ] Refactor examples to use common patterns
@@ -208,7 +208,7 @@ let result: Vec<f32> = c.read()?;
 - [ ] Test on macOS (if applicable)
 - [ ] Document platform-specific issues
 - [ ] Add platform-specific CI jobs
-- **Success Criteria**: Works on Linux, Windows, macOS
+- **Success Criteria**: Linux platform validation completed; Windows/macOS targets remain gated by test evidence
 
 ### 5.2 GPU Vendor Validation
 - [ ] Test on AMD hardware
@@ -216,7 +216,7 @@ let result: Vec<f32> = c.read()?;
 - [ ] Test on Intel hardware
 - [ ] Document vendor-specific optimizations
 - [ ] Add vendor-specific test suites
-- **Success Criteria**: Verified on all major GPU vendors
+- **Success Criteria**: AMD and NVIDIA paths are currently primary; broader vendor checks are staged by integration evidence
 
 ## Milestone 6: Production Features 🚀 (Future)
 
@@ -239,23 +239,23 @@ let result: Vec<f32> = c.read()?;
 
 ## Success Metrics
 
-### Production Ready Criteria (v1.0)
-- ✅ Zero failing tests
-- ✅ 100% safety documentation
-- ✅ Zero compilation warnings
-- ✅ All examples working correctly
-- ✅ CI/CD pipeline active
-- ✅ Performance targets met
-- ✅ Multi-platform verified
+### Production Readiness Criteria (v1.0 intent)
+- Baseline tests passing in active CI scope
+- Safety documentation coverage for active API and unsafe boundaries
+- No warnings that materially block release confidence
+- Runtime-critical examples validated end-to-end
+- CI/CD pipeline execution in place
+- Performance targets met after benchmark reruns
+- Linux path validated across AMD/NVIDIA where available
 
 ### Quality Metrics
-- Code coverage: >80%
-- Documentation coverage: 100%
-- Benchmark improvements verified:
-  - Descriptor updates: 0 per dispatch ✓
-  - Barriers: ≤0.5 per dispatch ✓
-  - CPU time: -30-50% reduction ✓
-  - Memory allocations: 0 in steady state ✓
+- Code coverage target: >80% in active modules
+- Documentation coverage target: complete for active API path
+- Benchmark improvements tracked after re-baselining:
+  - Descriptor updates target: 0 per dispatch
+  - Barriers target: ≤0.5 per dispatch
+  - CPU time target: -30-50% reduction
+  - Memory allocations target: 0 in steady state
 
 ## Risk Mitigation
 

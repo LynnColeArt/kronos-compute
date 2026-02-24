@@ -6,7 +6,7 @@
 
 ## Key Finding
 
-**Kronos forwards API calls to the same Vulkan driver**, so raw GPU performance is identical. The performance benefits come from optimizing the API layer itself.
+**Kronos forwards API calls to the same Vulkan driver**, so raw GPU performance should stay aligned with the driver. Current performance claims are framed around API-layer behavior and need revalidation against fresh workloads.
 
 ## Actual Performance Comparison
 
@@ -20,10 +20,10 @@ Since Kronos uses the same underlying Vulkan driver, we're comparing:
 
 | Operation | Performance | Notes |
 |-----------|-------------|-------|
-| Pure API operations | 0.36-0.80 ns | Handle creation, flag operations |
-| Instance creation | ~609 ns | Minimal forwarding overhead |
-| Device enumeration | ~14 ns | Cached after first call |
-| Device creation | ~3 ms | Driver-dominated, same for both |
+| Pure API operations | [deferred latency] | Handle creation, flag operations |
+| Instance creation | [deferred latency] | Minimal forwarding overhead |
+| Device enumeration | [deferred latency] | Cached after first call |
+| Device creation | [deferred latency] | Driver-dominated, same for both |
 
 ### Where Kronos Provides Benefits
 
@@ -32,11 +32,11 @@ Since Kronos uses the same underlying Vulkan driver, we're comparing:
    - Inline optimizations
    - No virtual function overhead
    
-2. **Reduced Memory Footprint**
+2. **Reduced Memory Footprint (staged)**
    ```
    VkPhysicalDeviceFeatures:
-   - Standard Vulkan: ~220 bytes
-   - Kronos: 32 bytes (85% reduction)
+   - Standard Vulkan: [deferred size]
+   - Kronos: [deferred size] (targeted delta)
    ```
 
 3. **O(1) Memory Type Lookups**
@@ -56,16 +56,16 @@ Since Kronos uses the same underlying Vulkan driver, we're comparing:
 
 ### For Compute Workloads
 
-1. **Application Startup**: 20-30% faster
+1. **Application Startup**: staged target (20-30% range)
    - No graphics subsystem initialization
    - Smaller binary size
    - Fewer dependencies
 
-2. **Memory Allocation**: 10-20x faster type selection
+2. **Memory Allocation**: staged target range (type-selection improvement)
    - Critical for frequent allocations
    - Reduces stalls in allocation-heavy workloads
 
-3. **API Call Overhead**: 5-15% reduction
+3. **API Call Overhead**: staged target range
    - Matters for high-frequency operations
    - Benefits command buffer recording
 
@@ -74,12 +74,12 @@ Since Kronos uses the same underlying Vulkan driver, we're comparing:
 For a typical machine learning training loop:
 ```
 Per iteration:
-- 1,000 buffer allocations: Save 10-20 µs with O(1) lookups
-- 10,000 dispatch calls: Save 50-150 µs in API overhead
-- 100,000 flag checks: Save 50 µs
+- [deferred count] buffer allocations: [deferred latency] with O(1) lookups
+- [deferred count] dispatch calls: [deferred latency] in API overhead
+- [deferred count] flag checks: [deferred latency]
 
-Total: ~200-400 µs saved per iteration
-Over 1M iterations: 200-400 seconds saved
+Total: [deferred latency] per iteration (staged)
+Over [deferred count] iterations: [deferred latency] (staged)
 ```
 
 ## Why Not Always Faster?
@@ -94,11 +94,11 @@ Over 1M iterations: 200-400 seconds saved
 
 Kronos is **not a faster GPU driver** - it's a **more efficient API layer** for compute workloads:
 
-✅ **Proven Benefits:**
-- Faster initialization
-- Lower memory footprint  
-- O(1) memory type lookups
-- Reduced API call overhead
+✅ **Observed Benefits (staged):**
+- Targeted initialization gains
+- Memory footprint reduction target
+- O(1) memory type lookup target
+- Reduced API call overhead target
 
 ❌ **Unchanged:**
 - GPU compute performance
@@ -116,4 +116,4 @@ Kronos is **not a faster GPU driver** - it's a **more efficient API layer** for 
 - Single large compute kernels
 - I/O bound workloads
 
-The ~20-30% initialization improvement and 5-15% API overhead reduction make Kronos valuable for compute-focused applications, especially those with frequent API interactions.
+The ~20-30% and 5-15% values are staged snapshots and are only placeholders for revalidation under current runtime conditions.

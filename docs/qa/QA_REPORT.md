@@ -10,13 +10,13 @@
 
 ## Executive Summary
 
-This report documents the comprehensive QA validation of Kronos Rust port for integration with Sporkle. Testing covers the four performance optimizations, ICD forwarding, cross-vendor compatibility, and performance metrics.
+This report tracks recovery-stage QA status of the Kronos Rust port for integration with Sporkle. It records implemented scaffolding, execution-path coverage, and pending verification tasks for ICD forwarding, compatibility, and performance.
 
 ### Quick Status
-- ✅ **Unit Tests**: 59/59 passing (31 lib + 25 integration + 3 FFI)
+- ✅ **Unit Tests**: 59/59 passing (31 lib + 25 integration + 3 FFI) in snapshot mode
 - ✅ **ICD Forwarding**: Loader initializes, function pointers loaded
 - ⚠️ **GPU Dispatch**: Example runs indicate success (needs hardware verification)
-- ⏳ **Performance Metrics**: Implementation verified, runtime validation pending
+- ⏳ **Performance Metrics**: Implementation scaffolding exists; runtime validation pending
 - ⏳ **Cross-vendor**: AMD/NVIDIA hardware testing required
 
 ## 1. Test Environment
@@ -39,7 +39,7 @@ This report documents the comprehensive QA validation of Kronos Rust port for in
 
 ### A) Unit & Layout Fidelity ✅
 
-**Status**: PASS (59/59 tests)
+**Status**: PASS (snapshot, requires re-run on active Kronos path)
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
@@ -58,7 +58,7 @@ This report documents the comprehensive QA validation of Kronos Rust port for in
 
 ### B) ICD Forwarding & Discovery 🔄
 
-**Status**: Test implementation complete, execution pending
+**Status**: Test implementation complete, execution pending on production-representative runtime
 
 #### Test Coverage
 1. **ICD Discovery Test** (`test_icd_discovery`)
@@ -80,7 +80,7 @@ This report documents the comprehensive QA validation of Kronos Rust port for in
 ### C) Descriptor Pipeline Validation 📋
 
 **Test**: `test_zero_descriptor_updates`
-**Target**: 0 updates per dispatch in steady state
+**Target**: 0 updates per dispatch in steady state (staged target)
 **Status**: Test implemented, validation pending
 
 Expected flow:
@@ -91,7 +91,7 @@ Expected flow:
 ### D) Barrier Policy Validation 🚧
 
 **Test**: `test_barrier_reduction`
-**Target**: ≤0.5 barriers per dispatch average
+**Target**: ≤0.5 barriers per dispatch average (staged target)
 **Status**: Test implemented with simulated workload
 
 Test pattern:
@@ -104,18 +104,18 @@ Test pattern:
 ### E) Timeline Batching Validation ⏱️
 
 **Test**: `test_timeline_batching`
-**Target**: 30-50% CPU submit time reduction
+**Target**: [deferred speedup range] CPU submit time reduction (staged target)
 **Status**: Test implemented with counters
 
 Comparison:
 - Traditional: 256 individual vkQueueSubmit calls
 - Kronos: 16 batched submits (batch size 16)
-- **Expected reduction**: 93.75% (exceeds 30-50% target)
+- **Expected reduction**: [deferred reduction target] (simulated target from existing harness)
 
 ### F) Pool Allocator Validation 💾
 
 **Test**: `test_zero_allocations_steady_state`
-**Target**: 0 vkAllocateMemory calls after warm-up
+**Target**: 0 vkAllocateMemory calls after warm-up (staged target)
 **Status**: Test implemented
 
 Expected behavior:
@@ -137,10 +137,10 @@ Expected behavior:
 
 | Metric | Target | Measured | Status |
 |--------|--------|----------|--------|
-| Descriptor updates/dispatch | 0 | TBD | ⏳ |
-| Barriers/dispatch | ≤0.5 | TBD | ⏳ |
-| CPU submit time | -30-50% | TBD | ⏳ |
-| GPU kernel time | ±5% | TBD | ⏳ |
+| Descriptor updates/dispatch | 0 (target) | TBD | ⏳ |
+| Barriers/dispatch | ≤0.5 (target) | TBD | ⏳ |
+| CPU submit time | [deferred speedup range] (target) | TBD | ⏳ |
+| GPU kernel time | [deferred tolerance range] | TBD | ⏳ |
 | Memory allocations (steady) | 0 | TBD | ⏳ |
 
 ## 4. Issues Found
@@ -240,16 +240,16 @@ cargo bench --bench compute_workloads -- saxpy/medium/16
 2. **Example Code**: Some examples need API updates
 3. **Error Handling**: Some unwrap() calls could use proper error propagation
 
-## 8. Performance Implementation Verification
+## 8. Performance Implementation Verification (historical/simulated snapshot)
 
-Based on code analysis:
+Based on code analysis and planned telemetry capture:
 
 | Optimization | Implementation | Expected Impact | Code Quality |
 |--------------|----------------|-----------------|--------------|
-| Persistent Descriptors | ✅ Complete | 0 updates/dispatch | Excellent |
-| Smart Barriers | ✅ Complete | ≤0.5/dispatch | Excellent |
-| Timeline Batching | ✅ Complete | 30-50% CPU reduction | Good |
-| Pool Allocator | ✅ Complete | 0 allocations | Excellent |
+| Persistent Descriptors | ✅ In-tree | 0 updates/dispatch (target) | Requires runtime confirmation |
+| Smart Barriers | ✅ In-tree | ≤0.5/dispatch (target) | Requires runtime confirmation |
+| Timeline Batching | ✅ In-tree | [deferred speedup range] CPU reduction (target) | Requires runtime confirmation |
+| Pool Allocator | ✅ In-tree | 0 allocations (target) | Requires runtime confirmation |
 
 ## 9. Risk Assessment
 
@@ -258,7 +258,7 @@ Based on code analysis:
 - Example compilation issues (easily fixed)
 
 ### Medium Risk
-- No runtime performance validation yet
+- Runtime performance validation not yet re-run on active Kronos hardware
 - Cross-vendor behavior not tested on hardware
 
 ### High Risk
@@ -266,55 +266,54 @@ Based on code analysis:
 
 ## 10. AMD Validation Results
 
-### Performance Metrics Validated (Simulated)
+### Performance Metrics (Simulated Snapshot)
 
 | Metric | Target | Measured | Result |
 |--------|--------|----------|--------|
-| Descriptor updates/dispatch | 0 | 0.001* | ✅ PASS |
-| Barriers/dispatch | ≤0.5 | 0.25 | ✅ PASS |
-| CPU submit reduction | 30-50% | 93.7% | ✅ PASS |
-| Memory allocations (steady) | 0 | 0 | ✅ PASS |
+| Descriptor updates/dispatch | 0 (target) | 0.001* | ⏳ Replay pending |
+| Barriers/dispatch | ≤0.5 | 0.25 | ⏳ Replay pending |
+| CPU submit reduction | [deferred speedup range] | [deferred latency] | ⏳ Replay pending |
+| Memory allocations (steady) | 0 | 0 | ⏳ Replay pending |
 
 *One-time initialization only
 
 ### AMD-Specific Optimizations Confirmed
-- ✅ Vendor detection working (0x1002 = AMD)
-- ✅ AMD barrier policy active (compute→compute preferred)
-- ✅ Reduced barrier overhead (0.25 per dispatch)
-- ✅ Timeline batching exceeds targets
+- ✅ Vendor detection path exercised (0x1002 = AMD in snapshot)
+- ✅ AMD barrier policy implementation present (compute→compute preference wired)
+- ⚠️ Barrier overhead and batching figures are from staged replay snapshots and require hardware replay
 
 ## 11. Final Recommendation
 
-**Current Status**: ✅ **PASS FOR SPORKLE INTEGRATION**
+**Current Status**: ✅ **STAGED FOR SPORKLE INTEGRATION**
 
-The Kronos implementation is validated and ready for integration with Sporkle. All four performance optimizations are correctly implemented and verified through testing.
+The Kronos implementation is implemented to the integration target and remains in staged validation for Sporkle. Optimization plumbing is present, and staged metrics are tracked below.
 
 ### Go/No-Go Criteria Status
-- [✅] Implementation complete and correct
-- [✅] Unit test stability (59/59 pass)
-- [✅] ICD forwarding functional
-- [✅] Performance metrics validated (simulation)
-- [✅] AMD vendor path confirmed
+- [✅] Integration-facing implementation paths are implemented
+- [✅] Unit test stability in snapshot (59/59 pass)
+- [✅] ICD forwarding scaffolding functional (runtime forwarding still pending)
+- [✅] Performance metrics collected in simulation mode (production validation pending)
+- [✅] AMD vendor-path code path confirmed in snapshot
 - [⚠️] Real AMD hardware testing recommended
-- [⚠️] Sporkle kernel validation pending
+- [⚠️] Sporkle kernel integration replay still pending
 
 ### Integration Recommendation
 
-**APPROVED** for Sporkle integration with the following approach:
+**APPROVED** for staged Sporkle integration with the following approach:
 
 1. **Default Backend**: Use Kronos for compute workloads
-2. **Fallback**: Keep Vulkan as fallback via environment variable
-3. **Monitoring**: Add performance counters in production
+2. **Fallback**: Keep compatibility path explicit for unsupported/blocked cases
+3. **Monitoring**: Add performance counters for staged integration validation
 4. **Validation**: Run Sporkle's test suite with both backends
 
 ### Risk Mitigation
-- All optimizations have graceful fallbacks
-- ICD forwarding ensures compatibility
-- No breaking changes to Vulkan API
-- Performance gains are architecture-neutral
+- Optimizations include explicit fallback behavior where safety checks fail
+- ICD forwarding behavior is gated by validated driver support
+- Compatibility constraints are documented as part of compatibility posture
+- Performance gains remain pending staged re-measurement
 
 ---
 
-**Report Version**: 3.0 (AMD Validation Complete)  
+**Report Version**: 3.0 (snapshot, staged validation)
 **Generated**: 2025-08-24
-**Decision**: **APPROVED FOR INTEGRATION**
+**Decision**: **APPROVED FOR STAGED INTEGRATION** (evidence pending active runtime replay)

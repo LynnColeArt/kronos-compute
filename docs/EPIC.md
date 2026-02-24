@@ -6,14 +6,14 @@
 
 ## Epic Overview
 
-Kronos is a streamlined, compute-focused fork of Vulkan that removes all graphics functionality to achieve maximum GPU compute performance. This is a full Rust port (not just FFI bindings) that forwards compute calls to real Vulkan drivers via the ICD (Installable Client Driver) mechanism.
+Kronos is a streamlined, compute-focused fork of Vulkan that reduces graphics surface area to target compute-first workloads. This is a Rust implementation (not just FFI bindings) that forwards compute calls to real Vulkan drivers via the ICD (Installable Client Driver) mechanism.
 
 ## Project Goals
 
 1. **Remove all graphics-only functionality** - Strip out rendering, surfaces, swapchains, etc.
 2. **Maintain compute compatibility** - Ensure all compute operations work identically to Vulkan
 3. **Zero-copy performance** - Direct forwarding to real drivers, no intermediate translation
-4. **Production-ready** - Robust error handling, no panics, proper logging
+4. **Production-minded** - Robust error handling, no panics, proper logging
 5. **Cross-platform** - Support Linux, Windows, and macOS
 
 ## Architecture
@@ -30,14 +30,14 @@ Real Vulkan Driver (nvidia, amd, intel, etc.)
 
 ## Current Status
 
-### ✅ Completed
-- Full Rust port of core Vulkan compute APIs
+### 🚧 Recovery Snapshot
+- Rust-centric implementation of core Vulkan compute APIs
 - ICD loader implementation with driver discovery
 - Function forwarding to real Vulkan drivers
-- Removal of all graphics-only code
+- Targeted removal of graphics-only compute-excluded code paths
 - Thread-safe implementations
 - Basic test suite
-- **Production Error Handling** - Complete unwrap() elimination with proper error types
+- **Error Handling Recovery Milestone** - Complete unwrap() elimination with proper error types
 - **Critical Safety Documentation** - Core ICD loader, memory, device, and instance functions
 
 ### 🚧 In Progress
@@ -48,7 +48,7 @@ Real Vulkan Driver (nvidia, amd, intel, etc.)
 - Comprehensive documentation
 
 ### ⚠️ QA Findings (Latest Review)
-**Error Handling**: ✅ Production Ready
+**Error Handling**: ✅ Recovery-staged hard-fail behavior with no unwraps
 - Zero unwrap() calls, robust error propagation
 - Comprehensive null pointer validation
 - Proper mutex handling with poison recovery
@@ -71,9 +71,9 @@ See [TODO.md](TODO.md) for detailed task list.
    - Removed all graphics enums, structures, and functions
    - Kept only compute-necessary features
 
-3. **Full Rust Port**
+3. **Rust Implementation Focus**
    - Not just FFI bindings
-   - Rust-native types with zero-copy forwarding
+   - Rust-native types intended for low-copy forwarding
 
 ## Testing
 
@@ -108,13 +108,13 @@ cargo build --release --features "implementation validation"
 4. Add tests for new functionality
 5. Keep graphics code out!
 
-## Performance
+## Performance (Targeting)
 
-Kronos adds minimal overhead:
+Kronos is designed to minimize overhead through:
 - Zero-copy command buffer recording
 - Direct function pointer forwarding
-- No intermediate translation layers
-- Native Rust performance
+- Reduced intermediate translation layers
+- Measurable performance gains only where staged validation confirms them
 
 ## Compatibility
 

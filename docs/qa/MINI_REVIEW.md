@@ -6,44 +6,44 @@
 
 ## Executive Summary
 
-The Kronos Rust port is now feature-complete with all 4 of your recommended performance optimizations fully implemented. The codebase compiles successfully, includes comprehensive benchmarks, and demonstrates the feasibility of a compute-only Vulkan implementation with state-of-the-art performance characteristics.
+The Kronos Rust port includes implementations across the 4 requested optimization areas and compiles successfully. It includes benchmark scaffolding and is positioned for staged feasibility work toward a compute-only Vulkan implementation after revalidation.
 
 ## ✅ Completed Optimizations
 
 ### 1. **Persistent Descriptors (Zero Updates Per Dispatch)**
 - **Location**: `src/implementation/persistent_descriptors.rs`
-- **Status**: Fully implemented
+- **Status**: Implemented in-tree
 - Set 0 is reserved for storage buffers that never change
 - Parameters are passed via push constants (≤128 bytes)
 - Descriptor sets are pre-allocated and never updated in the hot path
-- **Result**: 0 descriptor updates per dispatch (vs 3-5 in standard Vulkan)
+- **Target result**: 0 descriptor updates per dispatch (vs 3-5 in standard Vulkan) as a staged target
 
 ### 2. **Smart Barrier Policy (≤0.5 Barriers Per Dispatch)**
 - **Location**: `src/implementation/barrier_policy.rs`
-- **Status**: Fully implemented with vendor-specific optimizations
+- **Status**: Implemented with vendor-specific optimization paths
 - Tracks buffer access patterns with generation counters
 - Only 3 transition types: upload→read, read→write, write→read
 - Vendor-specific optimizations for AMD, NVIDIA, and Intel
 - Uses `RefCell` for interior mutability in benchmark contexts
-- **Result**: Average 0.5 barriers per dispatch (83% reduction)
+- **Target result**: Average 0.5 barriers per dispatch (staged target)
 
 ### 3. **Timeline Semaphore Batching (30-50% CPU Overhead Reduction)**
 - **Location**: `src/implementation/timeline_batching.rs`
-- **Status**: Fully implemented
+- **Status**: Implemented in-tree
 - One timeline semaphore per queue
 - Batches multiple submissions with a single fence
 - Configurable batch sizes (default: 256)
 - Thread-safe with `Mutex<HashMap<VkQueue, TimelineState>>`
-- **Result**: 30-50% reduction in CPU submit time
+- **Target result**: 30-50% reduction in CPU submit time (staged target)
 
 ### 4. **3-Pool Memory Allocator (Zero Allocations in Steady State)**
 - **Location**: `src/implementation/pool_allocator.rs`
-- **Status**: Fully implemented
+- **Status**: Implemented in-tree
 - Three pools: DEVICE_LOCAL, HOST_VISIBLE|COHERENT, HOST_VISIBLE|CACHED
 - Slab-based sub-allocation with 256MB slabs
 - Power-of-2 block sizes for O(1) allocation/deallocation
 - Free list with buddy allocation
-- **Result**: Zero vkAllocateMemory calls after warm-up
+- **Target result**: Zero vkAllocateMemory calls after warm-up (staged target)
 
 ## 📊 Benchmark Suite
 
@@ -57,7 +57,7 @@ The Kronos Rust port is now feature-complete with all 4 of your recommended perf
 - **Sizes**: 64KB (small), 8MB (medium), 64MB (large)
 - **Batch sizes**: 1, 16, 256 dispatches
 - **Metrics tracked**:
-  - Descriptor updates (always 0!)
+  - Descriptor updates (target 0 in optimized path)
   - Barriers per dispatch
   - CPU submit time
   - Memory allocations
@@ -78,26 +78,26 @@ pub struct Handle<T> {
 ### ICD Loader Integration
 - Full forwarding layer to system Vulkan implementation
 - Dynamically loads Vulkan ICD at runtime
-- Transparent optimization injection
-- Works with any Vulkan 1.0+ driver
+- Transparent optimization hooks (subject to backend support)
+- Works with Vulkan 1.0+ drivers when support is validated
 
 ### Structure Optimization
-- `VkPhysicalDeviceFeatures`: 32 bytes (vs 220 in standard Vulkan) - 85.5% reduction
+- `VkPhysicalDeviceFeatures`: 32 bytes (vs 220 in standard Vulkan) - 85.5% structural reduction target
 - Reordered fields for optimal packing
 - Removed all graphics-related fields
 - Average structure size reduction: 13.9%
 
 ## 📈 Performance Metrics
 
-Based on the implementation, we achieve Mini's targets:
+Based on the implementation model, the target behavior is:
 
 | Metric | Standard Vulkan | Kronos | Improvement |
 |--------|----------------|---------|-------------|
-| Descriptor updates/dispatch | 3-5 | **0** | 100% ⬇️ |
-| Barriers/dispatch | 3 | **≤0.5** | 83% ⬇️ |
-| CPU submit time | 100% | **50-70%** | 30-50% ⬇️ |
-| Memory allocations | Continuous | **0*** | 100% ⬇️ |
-| Structure sizes | 100% | **86.1%** | 13.9% ⬇️ |
+| Descriptor updates/dispatch | 3-5 | **0** | 83%+ target |
+| Barriers/dispatch | 3 | **≤0.5** | 83% target |
+| CPU submit time | 100% | **50-70%** | 30-50% target |
+| Memory allocations | Continuous | **0*** | 100% target |
+| Structure sizes | 100% | **86.1%** | 13.9% target |
 
 *After initial warm-up
 
@@ -133,13 +133,13 @@ pub struct BufferAccess {
 ## 🚦 Current Status
 
 ### Working
-- ✅ All 4 optimizations fully implemented
+- ✅ All 4 optimization areas implemented in-tree
 - ✅ ICD loader with Vulkan forwarding
-- ✅ Complete benchmark suite
+- ✅ Core benchmark scaffolding in place
 - ✅ Basic compute example (`examples/compute_simple.rs`)
 - ✅ Comprehensive test coverage
 - ✅ FFI-safe type definitions
-- ✅ Thread-safe implementations
+- ✅ Thread-safe implementations (scope confirmed in targeted modules)
 
 ### Needs Polish
 - ⚠️ Optimized example has minor compilation issues
@@ -158,7 +158,7 @@ pub struct BufferAccess {
 
 2. **Vendor Detection**: We detect GPU vendor via `VkPhysicalDeviceProperties::vendorID` and apply vendor-specific optimizations automatically.
 
-3. **Zero-Cost Abstractions**: All optimizations are implemented as zero-cost abstractions - no runtime overhead compared to hand-written C.
+3. **Zero-Cost Abstractions**: Optimizations are structured to reduce overhead, with final zero-overhead claims pending revalidation.
 
 4. **ICD Forwarding**: Rather than reimplementing Vulkan, we forward to the system ICD and inject our optimizations transparently.
 
@@ -192,9 +192,9 @@ cargo bench --bench compute_workloads -- saxpy/medium/16
 
 ## 🙏 Acknowledgments
 
-Mini, your optimization techniques are brilliant and have been successfully ported to Rust with all the performance characteristics intact. The 4-optimization stack (persistent descriptors, smart barriers, timeline batching, and pool allocation) works beautifully together to achieve the "zero overhead" goal.
+The 4-optimization stack (persistent descriptors, smart barriers, timeline batching, and pool allocation) is present in the current implementation. Staged validation is still needed before claiming a "zero overhead" outcome.
 
-The Rust implementation adds memory safety and type safety while maintaining the same performance characteristics as a hand-optimized C implementation.
+The Rust implementation adds memory safety and type safety while preserving the staged performance design goals of the hand-optimized C implementation.
 
 ---
 

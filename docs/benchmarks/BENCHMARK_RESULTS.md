@@ -6,11 +6,11 @@
 
 ## Executive Summary
 
-Kronos demonstrates exceptional performance characteristics as a compute-only Vulkan implementation:
-- **Sub-nanosecond** operations for most API calls
-- **O(1) memory type lookups** vs O(n) in standard Vulkan
-- **Minimal overhead** for structure creation and handle operations
-- **Fast initialization** with real Vulkan ICD forwarding
+Kronos benchmark snapshots capture staged observations for a compute-only Vulkan implementation:
+- API-layer observations are staged and currently deferred for revalidation.
+- **Staged memory-type access profile** is tracked as a target design behavior
+- **Structure/handle setup** costs are captured as a staging artifact
+- **Initialization behavior** is being validated on active runtimes
 
 ## Detailed Performance Results
 
@@ -18,43 +18,43 @@ Kronos demonstrates exceptional performance characteristics as a compute-only Vu
 
 | Operation | Time (ns) | Notes |
 |-----------|-----------|-------|
-| VkExtent3D creation | 0.62 | Simple structure |
-| VkBufferCreateInfo creation | 0.85 | Complex structure |
-| VkQueueFlags::contains | 0.28 | Bitflag operation |
-| VkQueueFlags::union | 0.28 | Bitflag combination |
-| Handle creation | 0.28 | Type-safe wrapper |
-| Handle null check | 0.32 | Inline comparison |
+| VkExtent3D creation | [deferred latency] | Simple structure |
+| VkBufferCreateInfo creation | [deferred latency] | Complex structure |
+| VkQueueFlags::contains | [deferred latency] | Bitflag operation |
+| VkQueueFlags::union | [deferred latency] | Bitflag combination |
+| Handle creation | [deferred latency] | Type-safe wrapper |
+| Handle null check | [deferred latency] | Inline comparison |
 
 ### 2. Memory Type Cache Performance
 
 | Method | Time (ns) | Complexity |
 |--------|-----------|------------|
-| Kronos cache lookup | 0.28 | O(1) |
-| Traditional linear search | 0.29* | O(n) |
+| Kronos cache lookup | [deferred latency] | O(1) target |
+| Traditional linear search | [deferred latency]* | O(n) target |
 
-*Note: Linear search with only 4 types. With typical 11+ memory types, the difference would be 10-20x.
+*Note: Linear search with only 4 types. With typical 11+ memory types, the gap is tracked as a [deferred speedup range] target from staged snapshots.
 
 ### 3. Instance Creation Performance
 
 | Operation | Time | Improvement |
 |-----------|------|-------------|
-| Full instance create/destroy | ~1 µs | 20-30% faster than full Vulkan |
+| Full instance create/destroy | [deferred latency] | staged target vs full Vulkan |
 
 ### 4. Structure Size Optimizations
 
 | Structure | Kronos Size | Standard Size | Reduction |
 |-----------|-------------|---------------|-----------|
-| VkPhysicalDeviceFeatures | 32 bytes | ~220 bytes | 85% |
+| VkPhysicalDeviceFeatures | [deferred size] | [deferred size] | [deferred target] |
 | VkMemoryTypeCache | 16 bytes | N/A (new) | - |
-| VkBufferCreateInfo | 56 bytes | 56 bytes | Same |
+| VkBufferCreateInfo | [deferred size] | [deferred size] | [deferred target] |
 
 ## Performance Characteristics
 
 ### Strengths
-1. **Zero-cost abstractions**: Rust's type system adds no runtime overhead
-2. **Inline optimizations**: Small functions are aggressively inlined
-3. **Cache-friendly**: Reduced structure sizes improve cache utilization
-4. **Direct forwarding**: No intermediate layers when calling real drivers
+1. **Low-overhead abstraction intent**: Rust APIs target minimal API-layer overhead
+2. **Inline paths**: Small functions are currently designed for inlining
+3. **Structure-size targets**: Reuse and cache behavior are being measured in staged runs
+4. **Direct forwarding**: Path is staged for real-driver verification
 
 ### Optimizations Implemented
 1. **O(1) memory type cache**: Pre-computed lookups vs linear search
@@ -73,27 +73,27 @@ Kronos demonstrates exceptional performance characteristics as a compute-only Vu
 ## Real-World Impact
 
 For a typical compute workload:
-- **1M buffer creations**: Save ~850 µs (0.85 ms)
-- **1M flag checks**: Save ~280 µs (0.28 ms)  
-- **1K memory allocations**: Save 10-20 ms with O(1) lookups
-- **Application startup**: Save 20-30% on initialization
+- **1M buffer creations**: [deferred latency]
+- **1M flag checks**: [deferred latency]  
+- **1K memory allocations**: [deferred latency] with O(1) lookups (staged target)
+- **Application startup**: [deferred speedup] (staged target)
 
 ## Comparison with Standard Vulkan
 
 | Metric | Kronos | Standard Vulkan | Improvement |
 |--------|--------|-----------------|-------------|
-| Initialization | ~1 µs | ~1.3-1.5 µs | 20-30% |
-| API call overhead | 0.28-0.85 ns | 0.3-1.0 ns | 5-15% |
-| Memory type lookup | O(1) | O(n) | 10-20x |
-| Binary size | Smaller | Larger | ~30% |
+| Initialization | [deferred latency] | [deferred latency] | [deferred speedup range] |
+| API call overhead | [deferred latency] | [deferred latency] | [deferred speedup range] |
+| Memory type lookup | O(1) | O(n) | [deferred speedup range] |
+| Binary size | [deferred target] | [deferred target] | [deferred target] |
 
 ## Conclusion
 
-Kronos successfully achieves its performance goals:
-- ✅ Sub-nanosecond API operations
-- ✅ Faster initialization than standard Vulkan
-- ✅ Optimized memory type lookups
-- ✅ Minimal overhead with type safety
-- ✅ Production-ready performance
+Kronos is positioned as a compute-only Vulkan fork with measured API-level improvements:
+- [staged] Sub-nanosecond API operations
+- [staged] Faster initialization than standard Vulkan in prior snapshots
+- [staged] Memory type lookup optimization behavior
+- [staged] Low-overhead type-safe API paths
+- ✅ Performance targets currently under Kronos-first staged validation
 
-The benchmark results validate Kronos as a high-performance compute-only Vulkan implementation suitable for HPC, ML, and other compute-intensive workloads.
+The benchmark results are a staging artifact for future validation and are intended to guide recovery-phase optimization work for HPC, ML, and other compute-intensive workloads.

@@ -6,7 +6,7 @@
 
 ## Overview
 
-Kronos is a compute-only fork of Vulkan designed to be a drop-in replacement for compute workloads while providing enhanced performance through reduced API surface area.
+Kronos is a compute-only Vulkan path intended to be a close replacement for compute workloads while targeting enhanced performance through reduced API surface area.
 
 ## Vulkan Compatibility
 
@@ -58,25 +58,25 @@ void vkCmdDispatch(VkCommandBuffer, uint32_t, uint32_t, uint32_t);
 - Handle values can be passed between Kronos and Vulkan contexts
 - No handle translation or conversion required
 
-## Performance Characteristics
+## Performance Characteristics (Target Behavior)
 
-### Expected Improvements
-- **Initialization**: 20-30% faster due to reduced driver surface area
-- **Dispatch Throughput**: 10-15% better due to optimized call paths
-- **Memory Footprint**: Reduced binary size and runtime memory usage
-- **Compilation Time**: Faster shader compilation with compute-only focus
+### Expected Improvements (Staged)
+- **Initialization**: [deferred speedup range] target (historical snapshot scope)
+- **Dispatch Throughput**: [deferred speedup range] target (historical snapshot scope)
+- **Memory Footprint**: Reduced binary size and runtime memory usage, staged revalidation pending
+- **Compilation Time**: [deferred speedup range] target with active runtime evidence still pending
 
 ### Maintained Guarantees
-- **Thread Safety**: All thread safety guarantees from Vulkan maintained
-- **Memory Ordering**: Identical memory ordering and synchronization semantics
-- **Error Handling**: Compatible error codes and error handling behavior
+- **Thread Safety**: Expected thread-safety alignment where supported
+- **Memory Ordering**: Expected ordering alignment where validated
+- **Error Handling**: Compatible error codes and behavior with compatibility caveats
 
 ## Platform Support
 
 ### Current Support
-- **Linux**: Full support with automatic ICD discovery
-- **Windows**: Basic support with environment variable configuration
-- **macOS**: Basic support with Homebrew and system paths
+- **Linux**: Current support with automatic ICD discovery
+- **Windows**: Provisional support with environment variable configuration
+- **macOS**: Provisional support with Homebrew and system paths
 
 ### ICD Discovery
 ```bash
@@ -179,10 +179,10 @@ If your code uses excluded features, you'll get:
 ### v0.1.0 (Current)
 - Initial release with Vulkan 1.0 compute compatibility
 - Cross-platform ICD discovery
-- Complete test suite
-- Production-ready error handling and safety documentation
+- Initial compatibility test suite
+- Error handling and safety documentation under staged verification
 
 ### Planned Releases
 - **v0.2.0**: Vulkan 1.1 compute features
 - **v0.3.0**: Advanced synchronization and memory features  
-- **v1.0.0**: Full stability and performance optimization guarantees
+- **v1.0.0**: Full stability and performance optimization targets to be validated after staged re-verification

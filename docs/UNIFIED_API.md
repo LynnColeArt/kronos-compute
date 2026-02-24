@@ -9,13 +9,13 @@
 
 ## Overview
 
-The Kronos Unified API provides a safe, ergonomic Rust interface for GPU compute operations. Unlike the low-level FFI that mimics Vulkan's C API, the unified API requires no unsafe code and handles resource management automatically.
+The Kronos Unified API provides a safer, ergonomic Rust interface for GPU compute operations. Unlike the low-level FFI that mimics Vulkan's C API, the unified API encapsulates unsafe setup/teardown paths and provides higher-level lifecycle helpers.
 
 ## Key Benefits
 
-1. **No unsafe code required** - All unsafe operations are encapsulated
-2. **Automatic resource management** - RAII ensures proper cleanup
-3. **Transparent optimizations** - All 4 Kronos optimizations work automatically
+1. **Reduced unsafe exposure** - Unsafe operations are isolated in internal modules
+2. **Resource lifecycle helpers** - RAII and explicit lifecycle APIs are preferred
+3. **Optimization hooks** - Optimization behavior is exposed through API surfaces, with runtime verification still staged
 4. **Ergonomic API** - Builder patterns and fluent interfaces
 5. **Type safety** - Rust's type system prevents many errors at compile time
 
@@ -204,12 +204,12 @@ fn vector_add() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Transparent Optimizations
 
-All four Kronos optimizations work automatically through the unified API:
+The unified API surfaces these Kronos optimization areas for integration:
 
-1. **Persistent Descriptors** - Buffers are automatically registered in Set0
-2. **Smart Barriers** - The API tracks buffer usage and inserts minimal barriers
-3. **Timeline Batching** - Multiple dispatches can be batched automatically
-4. **Pool Allocation** - Memory is allocated from pre-allocated pools
+1. **Persistent Descriptors** - Descriptor set workflows include Set0-style reuse paths
+2. **Smart Barriers** - Buffer usage tracking supports requested barrier insertion
+3. **Timeline Batching** - Dispatch grouping support is exposed for batching policies
+4. **Pool Allocation** - Allocator hooks are exposed for pooled allocation paths
 
 ## Error Handling
 
@@ -248,15 +248,13 @@ To migrate from the raw FFI to the unified API:
 1. Replace `vkCreateInstance` → `ComputeContext::new()`
 2. Replace manual buffer creation → `ctx.create_buffer()`
 3. Replace command buffer recording → `ctx.dispatch().execute()`
-4. Remove all `vkDestroy*` calls - RAII handles cleanup
-5. Remove all `unsafe` blocks - the API is safe!
+4. Use the unified `ComputeContext` lifecycle methods in place of raw Vulkan destroy/cleanup calls
 
 ## Performance
 
-The unified API is implemented to keep overhead low:
+The unified API is designed to keep overhead low:
 - Zero-cost abstractions where possible
-- Small allocation for command builder (reusable)
-- Reference counting for shared resources
-- All optimizations work identically to raw API
+- Small allocation for command builder state (reusable path)
+- Reference counting for shared resources where ownership needs explicit tracking
 
 Benchmark-derived overhead figures are not being published while benchmark evidence is deferred.
