@@ -35,6 +35,8 @@ pub struct PersistentDescriptorManager {
     
     /// Buffer -> Descriptor mapping
     descriptors: HashMap<u64, PersistentDescriptor>,
+    /// Device -> descriptor cache keys (for deterministic cleanup)
+    descriptors_by_device: HashMap<u64, Vec<u64>>,
     
     /// Generation counter for cache invalidation
     generation: u64,
@@ -45,6 +47,7 @@ lazy_static::lazy_static! {
         pools: HashMap::new(),
         set0_layout: HashMap::new(),
         descriptors: HashMap::new(),
+        descriptors_by_device: HashMap::new(),
         generation: 0,
     });
 }
@@ -180,11 +183,13 @@ pub unsafe fn get_persistent_descriptor_set(
     buffers: &[VkBuffer],
 ) -> Result<VkDescriptorSet, IcdError> {
     let mut manager = DESCRIPTOR_MANAGER.lock()?;
+    let device_key = device.as_raw();
     
     // Create cache key from buffer handles
-    let cache_key = buffers.iter()
+    let binding_signature = buffers.iter()
         .map(|b| b.as_raw())
-        .fold(0u64, |acc, h| acc.wrapping_add(h).rotate_left(7));
+        .fold(0u64, |acc, h| acc.wrapping_mul(0x9e3779b185ebca87) ^ h.rotate_left(13));
+    let cache_key = device_key.wrapping_mul(0x9e3779b97f4a7c15) ^ binding_signature;
     
     // Check if we already have this descriptor set
     if let Some(descriptor) = manager.descriptors.get(&cache_key) {
@@ -257,6 +262,12 @@ pub unsafe fn get_persistent_descriptor_set(
     // Cache the descriptor
     manager.generation += 1;
     let generation = manager.generation;
+    let descriptors_for_device = manager
+        .descriptors_by_device
+        .entry(device_key)
+        .or_default();
+    descriptors_for_device.retain(|key| *key != cache_key);
+    descriptors_for_device.push(cache_key);
     manager.descriptors.insert(cache_key, PersistentDescriptor {
         descriptor_set,
         buffers: buffers.to_vec(),
@@ -365,10 +376,11 @@ pub unsafe fn cleanup_persistent_descriptors(device: VkDevice) -> Result<(), Icd
     }
     
     // Remove cached descriptors for this device
-    manager.descriptors.retain(|_, desc| {
-        // In a real implementation, we'd track which descriptors belong to which device
-        desc.generation > 0 // Placeholder
-    });
+    if let Some(keys) = manager.descriptors_by_device.remove(&device_key) {
+        for key in keys {
+            manager.descriptors.remove(&key);
+        }
+    }
     
     Ok(())
 }

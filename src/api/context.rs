@@ -17,6 +17,8 @@ use crate::implementation::{
 use std::ffi::CString;
 use std::ptr;
 use std::sync::{Arc, Mutex};
+#[cfg(feature = "implementation")]
+use crate::implementation::persistent_descriptors::cleanup_persistent_descriptors;
 
 const SUPPORTED_VULKAN_VENDORS: &[(u32, &str)] = &[
     (0x10DE, "NVIDIA"),
@@ -617,6 +619,15 @@ impl Drop for ComputeContext {
         }
         let inner = self.inner.lock().unwrap();
         unsafe {
+            if inner.device != VkDevice::NULL {
+                if let Err(err) = cleanup_persistent_descriptors(inner.device) {
+                    log::warn!(
+                        "Failed to cleanup persistent descriptor cache for device {:?}: {:?}",
+                        inner.device,
+                        err
+                    );
+                }
+            }
             if inner.command_pool != VkCommandPool::NULL {
                 vkDestroyCommandPool(inner.device, inner.command_pool, ptr::null());
             }

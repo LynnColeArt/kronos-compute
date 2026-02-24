@@ -2,6 +2,8 @@
 
 use super::*;
 use crate::*; // Import all functions from the crate root
+#[cfg(feature = "implementation")]
+use crate::implementation::persistent_descriptors::get_persistent_descriptor_set;
 use std::ptr;
 
 /// Fluent builder for compute dispatch commands
@@ -77,6 +79,13 @@ impl CommandBuilder {
             let mut allocated_command_buffer = VkCommandBuffer::NULL;
             let mut allocated_descriptor_set = VkDescriptorSet::NULL;
             let has_bindings = !self.bindings.is_empty();
+            #[cfg(feature = "implementation")]
+            let use_persistent_descriptors = has_bindings && self.bindings
+                .iter()
+                .enumerate()
+                .all(|(index, (binding, _))| *binding == index as u32);
+            #[cfg(not(feature = "implementation"))]
+            let use_persistent_descriptors = false;
 
             let execute_result = self.context.with_inner(|inner| {
                 if inner.device == VkDevice::NULL {
@@ -155,58 +164,73 @@ impl CommandBuilder {
                 
                 // Create and update descriptor set if we have bindings
                 if has_bindings {
-                    // Allocate descriptor set
-                    let alloc_info = VkDescriptorSetAllocateInfo {
-                        sType: VkStructureType::DescriptorSetAllocateInfo,
-                        pNext: ptr::null(),
-                        descriptorPool: inner.descriptor_pool,
-                        descriptorSetCount: 1,
-                        pSetLayouts: &self.pipeline.descriptor_set_layout,
-                    };
-                    
-                    let mut descriptor_set = VkDescriptorSet::NULL;
-                    let result = vkAllocateDescriptorSets(inner.device, &alloc_info, &mut descriptor_set);
-                    if result != VkResult::Success {
-                        return Err(KronosError::from(result));
-                    }
-                    if descriptor_set == VkDescriptorSet::NULL {
-                        return Err(KronosError::CommandExecutionFailed(
-                            "vkAllocateDescriptorSets returned NULL".into(),
-                        ));
-                    }
-                    
-                    // Update descriptor set
-                    let buffer_infos: Vec<VkDescriptorBufferInfo> = self.bindings.iter().map(|(_, buffer)| {
-                        VkDescriptorBufferInfo {
-                            buffer: buffer.buffer,
-                            offset: 0,
-                            range: buffer.size as VkDeviceSize,
+                    if use_persistent_descriptors {
+                        #[cfg(feature = "implementation")]
+                        let persistent_buffers: Vec<VkBuffer> = self.bindings.iter().map(|(_, buffer)| buffer.buffer).collect();
+                        #[cfg(feature = "implementation")]
+                        let descriptor_set = get_persistent_descriptor_set(inner.device, &persistent_buffers)?;
+                        #[cfg(feature = "implementation")]
+                        self.descriptor_set = Some(descriptor_set);
+                        #[cfg(not(feature = "implementation"))]
+                        {
+                            return Err(KronosError::CommandExecutionFailed(
+                                "Persistent descriptors are not available without implementation feature".into(),
+                            ));
                         }
-                    }).collect();
-                    
-                    let writes: Vec<VkWriteDescriptorSet> = self.bindings.iter().enumerate().map(|(i, (binding, _))| {
-                        VkWriteDescriptorSet {
-                            sType: VkStructureType::WriteDescriptorSet,
+                    } else {
+                        // Allocate descriptor set
+                        let alloc_info = VkDescriptorSetAllocateInfo {
+                            sType: VkStructureType::DescriptorSetAllocateInfo,
                             pNext: ptr::null(),
-                            dstSet: descriptor_set,
-                            dstBinding: *binding,
-                            dstArrayElement: 0,
-                            descriptorCount: 1,
-                            descriptorType: VkDescriptorType::StorageBuffer,
-                            pImageInfo: ptr::null(),
-                            pBufferInfo: &buffer_infos[i],
-                            pTexelBufferView: ptr::null(),
+                            descriptorPool: inner.descriptor_pool,
+                            descriptorSetCount: 1,
+                            pSetLayouts: &self.pipeline.descriptor_set_layout,
+                        };
+                        
+                        let mut descriptor_set = VkDescriptorSet::NULL;
+                        let result = vkAllocateDescriptorSets(inner.device, &alloc_info, &mut descriptor_set);
+                        if result != VkResult::Success {
+                            return Err(KronosError::from(result));
                         }
-                    }).collect();
-                    if writes.len() != buffer_infos.len() {
-                        return Err(KronosError::CommandExecutionFailed(
-                            "Descriptor write/buffer mismatch".into(),
-                        ));
-                    }
-                    vkUpdateDescriptorSets(inner.device, writes.len() as u32, writes.as_ptr(), 0, ptr::null());
+                        if descriptor_set == VkDescriptorSet::NULL {
+                            return Err(KronosError::CommandExecutionFailed(
+                                "vkAllocateDescriptorSets returned NULL".into(),
+                            ));
+                        }
+                        
+                        // Update descriptor set
+                        let buffer_infos: Vec<VkDescriptorBufferInfo> = self.bindings.iter().map(|(_, buffer)| {
+                            VkDescriptorBufferInfo {
+                                buffer: buffer.buffer,
+                                offset: 0,
+                                range: buffer.size as VkDeviceSize,
+                            }
+                        }).collect();
+                        
+                        let writes: Vec<VkWriteDescriptorSet> = self.bindings.iter().enumerate().map(|(i, (binding, _))| {
+                            VkWriteDescriptorSet {
+                                sType: VkStructureType::WriteDescriptorSet,
+                                pNext: ptr::null(),
+                                dstSet: descriptor_set,
+                                dstBinding: *binding,
+                                dstArrayElement: 0,
+                                descriptorCount: 1,
+                                descriptorType: VkDescriptorType::StorageBuffer,
+                                pImageInfo: ptr::null(),
+                                pBufferInfo: &buffer_infos[i],
+                                pTexelBufferView: ptr::null(),
+                            }
+                        }).collect();
+                        if writes.len() != buffer_infos.len() {
+                            return Err(KronosError::CommandExecutionFailed(
+                                "Descriptor write/buffer mismatch".into(),
+                            ));
+                        }
+                        vkUpdateDescriptorSets(inner.device, writes.len() as u32, writes.as_ptr(), 0, ptr::null());
 
-                    allocated_descriptor_set = descriptor_set;
-                    self.descriptor_set = Some(descriptor_set);
+                        allocated_descriptor_set = descriptor_set;
+                        self.descriptor_set = Some(descriptor_set);
+                    }
                 }
                 
                 // Insert barriers for buffers (smart barrier optimization)
