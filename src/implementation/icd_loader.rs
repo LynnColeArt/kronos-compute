@@ -2,7 +2,10 @@
 //! 
 //! Loads real Vulkan drivers and forwards compute calls
 
-use std::ffi::{CStr, CString};
+#[cfg(not(windows))]
+use std::ffi::CStr;
+use std::ffi::CString;
+#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::fs;

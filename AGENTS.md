@@ -28,3 +28,29 @@ This policy is mandatory for every human and agent working in this repository.
 - After an eligible parent's last child has been removed, remove the now-empty dedicated temporary parent as well. Never delete a broad shared root such as `/Users/sam/git/crucible`; instead leave it with only the deliberately retained primary repositories and bounded active lanes.
 - Unregistered non-Git children may not be swept blindly. Identify their owner and contents, preserve valuable evidence where required, and record a concrete disposition before removal. Do not create a new sibling worktree merely to evade an existing protected child.
 - Report parent-root hygiene with factual direct-child counts, protected exceptions, and filesystem-capacity deltas measured before and after cleanup. Do not substitute Git registry counts, branch counts, or estimates for physical storage recovery.
+
+<!-- crucible:validated-work-delivery:v1:start -->
+## Permanent validated-work delivery rule
+
+Sam explicitly authorizes and requires commits and pushes for useful validated
+work in every `crucible-energy` repository. This is a standing delivery rule.
+
+- After each coherent useful increment, run the relevant formatting, build,
+  tests, and self-review. If it does not break the build or introduce regressions,
+  commit and push it immediately, before another increment or a handoff.
+  Locally implemented but uncommitted work is not delivered.
+- Use a named feature branch and the repository's review/merge workflow. Inspect
+  status, diff, and recent history; stage only intended paths. Preserve unrelated
+  work. Never commit credentials or bypass hooks, required validation, or branch
+  protection. Repository-specific stricter requirements remain in force.
+- A broader unrelated failure does not justify leaving an independently validated
+  useful slice uncommitted: separate it, record its checks and the remaining
+  blocker, then commit and push it. Do not label an unvalidated or failing slice
+  complete merely to satisfy this rule.
+- If validation, credentials, Git locks, or remote policy prevent delivery, report
+  the exact blocker and next action; resume delivery when it is resolved. An
+  uncommitted terminal handoff must not become the normal outcome.
+- Handoffs must name the branch, commit, push result, validation, and remaining
+  work. A pushed source commit does not prove merge, deployment, or production
+  qualification.
+<!-- crucible:validated-work-delivery:v1:end -->
