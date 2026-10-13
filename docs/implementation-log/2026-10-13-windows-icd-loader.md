@@ -16,6 +16,8 @@
 
 ## Known Limitations
 
-- Local validation runs on macOS. The repository's Windows GitHub check must
-  pass on this PR before the repair is accepted, and the blocked policy PR
-  must be rerun against the repaired main branch.
+- Local validation runs on macOS. The Windows `build-and-unit-tests` check
+  passed on PR #11 (run 38340930943). The blocked policy PR must be rerun
+  against the repaired main branch. The separate legacy CI workflow remains
+  red on repository-wide formatting and Vulkan SDK installation; those
+  failures predate this import fix.
