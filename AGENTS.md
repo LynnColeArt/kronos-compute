@@ -15,6 +15,21 @@ This policy is mandatory for every human and agent working in this repository.
 - Every PR review finding, including outdated or merged-PR threads, needs an explicit public reply with the disposition and validation before resolution. Do not make anyone infer whether feedback was handled.
 - Report only measured storage reclaimed from filesystem capacity changes. Cleanup is operational hygiene, not delivery credit; do not invent or game metrics.
 
+## Organization-Wide Implementation Language
+
+- New repository-owned backend, runtime, CLI, native tooling, adapter,
+  evaluation, and automation implementation must use Zig. Go, Rust, Python,
+  and other retained languages are not interchangeable choices for new work.
+- Apple platform work may use Swift for macOS and iOS code. Browser-facing work
+  may use TypeScript, JavaScript, HTML, CSS, and Tailwind. Keep shared or server
+  implementation in Zig unless an exact exception is approved.
+- Existing non-Zig code may receive bounded correctness and safety repairs,
+  contract preservation, and migration work. Record the reason and Zig parity
+  or port follow-up; do not grow its feature surface by default. Official
+  external runners and platform-required files keep their required formats.
+- A different language for new repo-owned implementation requires Sam's
+  explicit approval for that exact change. Preserve stricter repository rules.
+
 
 
 ## Parent Workspace Directory Hygiene (Required)
