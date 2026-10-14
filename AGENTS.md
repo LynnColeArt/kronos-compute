@@ -27,8 +27,9 @@ This policy is mandatory for every human and agent working in this repository.
   contract preservation, and migration work. Record the reason and Zig parity
   or port follow-up; do not grow its feature surface by default. Official
   external runners and platform-required files keep their required formats.
-- A different language for new repo-owned implementation requires Sam's
-  explicit approval for that exact change. Preserve stricter repository rules.
+- A language outside the Zig, Apple-platform, and browser-facing cases above
+  requires Sam's explicit approval for that exact change. Preserve stricter
+  repository rules.
 
 
 
