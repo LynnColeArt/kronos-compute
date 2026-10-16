@@ -30,11 +30,10 @@ cargo test --lib
 ```
 
 These commands compile and test library code; they do not dispatch work to a
-GPU. `Cargo.toml` declares Rust 1.70 as its minimum version. This README review
-ran the library check, unit tests and safe-API example compilation on macOS with
-Rust 1.98.1; it did not validate the declared minimum version or Linux runtime
-behavior. For Vulkan loader and device setup, see the
-[development setup guide](docs/DEVELOPMENT_SETUP.md).
+GPU. `Cargo.toml` declares Rust 1.70 as its minimum version. The dated
+[development setup guide](docs/DEVELOPMENT_SETUP.md) records the tested macOS
+toolchain and explicit Linux/GPU qualification limits; the declared minimum
+version and Linux runtime behavior remain untested.
 
 To inspect the safe API, read [Unified API](docs/UNIFIED_API.md) and
 [`examples/unified_api_simple.rs`](examples/unified_api_simple.rs). Compile that
