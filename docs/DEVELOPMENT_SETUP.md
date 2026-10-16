@@ -66,6 +66,8 @@ and [compatibility notes](COMPATIBILITY.md) for implementation boundaries.
 
 The crate remains Rust today. Read [AGENTS.md](../AGENTS.md) before changing
 implementation code: new repo-owned backend, runtime, CLI, native tooling,
-adapter, evaluation and automation work is required to use Zig unless Sam
-explicitly approves an exception for the exact change. There is no separate
-`CONTRIBUTING.md`; the repository guidance is the contribution policy.
+adapter, evaluation and automation work must use Zig. Apple-platform code may
+use Swift; browser-facing work may use TypeScript, JavaScript, HTML, CSS and
+Tailwind. Sam's explicit approval is required for other language exceptions.
+There is no separate `CONTRIBUTING.md`; the repository guidance is the
+contribution policy.
