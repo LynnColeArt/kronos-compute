@@ -70,3 +70,20 @@ work in every `crucible-energy` repository. This is a standing delivery rule.
   work. A pushed source commit does not prove merge, deployment, or production
   qualification.
 <!-- crucible:validated-work-delivery:v1:end -->
+
+## Crucible ecosystem orientation
+
+For a source-first architecture review from this repository, start with
+[Crucible ecosystem orientation in Codex][crucible-ecosystem-orientation].
+Read this repository's `README.md`, `AGENTS.md`, and owner docs. Record this
+checkout's branch, commit, and dirty state, then trace concrete callers,
+consumers, and data paths in both directions. The guide's curated reading order
+prioritizes attention; it does not assert runtime dependencies. Use its evidence
+labels: implemented, documented plan, observed, measured, or unknown.
+
+Treat Atlas as a live dependency graph only when its registered Citadel query
+returns a current, coherent source cut with provenance, freshness/as-of,
+coverage, and explicit omissions. A missing or unready route, fixture, or stale
+result means unavailable; do not substitute a static map.
+
+[crucible-ecosystem-orientation]: https://github.com/crucible-energy/aletheia/blob/main/docs/onboarding/codex-architecture-review.md
